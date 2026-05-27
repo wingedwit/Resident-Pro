@@ -25,4 +25,4 @@ Since this is a client-side web application, you can run it directly in any mode
 - HTML5 (Semantic Structure)
 - CSS3 (Vanilla Custom Layout & Dark Mode support)
 - Vanilla JavaScript (ES6+ state management, Undo/Redo tracking, LocalStorage persistence)
-- Flatpickr (Minimal date picker library, loaded on demand)
+- Flatpickr (Minimal date picker library, loaded on demand) 
