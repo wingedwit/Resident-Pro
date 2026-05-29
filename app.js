@@ -1,37 +1,30 @@
 const STORAGE_KEY = 'residentProData';
 
-const RESIDENT_GROUPS = [
-    { level: 'JR1', names: ['Dr. Prabhav', 'Dr. Muskan', 'Dr. Jyotsna', 'Dr. Mukesh'] },
-    { level: 'JR2', names: ['Dr. Naresh', 'Dr. Vaibhav', 'Dr. Shivangi', 'Dr. Zahid'] },
-    { level: 'JR3', names: ['Dr. Saumya', 'Dr. Malhar', 'Dr. Anurag', 'Dr. Danish', 'Dr. Snigdha'] }
-];
+// Destructure utilities and logic from global modules
+const {
+    toLocalISODate,
+    todayISO,
+    formatDate
+} = window.ResidentDateUtils;
 
-const MODERATOR_OPTIONS = [
-    'Dr. Arpita Singh',
-    'Dr. Pooja Shukla',
-    'Dr. Himanshu Sharma',
-    'Dr. Garima Adhaulia',
-    'Dr. Govind Mishra',
-    'Dr. Parul Kamal'
-];
+const {
+    safeStorage,
+    loadStateFromStorage
+} = window.ResidentStorageUtils;
 
-const SENIOR_OPTIONS = [
-    'Dr. Harshika',
-    'Dr. Anjali',
-    'Dr. Vishakha',
-    'Dr. Punit',
-    'Dr. Garima'
-];
-
-const TYPE_OPTIONS = [
-    'Group discussion',
-    'Journal club',
-    'Seminar',
-    'Practical'
-];
-
-const PRESENTER_OPTIONS = RESIDENT_GROUPS.flatMap((group) => group.names);
-const ALL_RESIDENTS = [...PRESENTER_OPTIONS];
+const {
+    RESIDENT_GROUPS,
+    MODERATOR_OPTIONS,
+    SENIOR_OPTIONS,
+    TYPE_OPTIONS,
+    PRESENTER_OPTIONS,
+    ALL_RESIDENTS,
+    getSelectedResidents,
+    getReportRows,
+    buildGoogleDocText,
+    buildGoogleDocHtml,
+    escapeHtml
+} = window.ResidentLogic;
 
 const fields = {
     date: document.getElementById('dateInput'),
@@ -47,8 +40,6 @@ const mobileCopyButton = document.getElementById('mobileCopyButton');
 const upiCopyButton = document.getElementById('upiCopyButton');
 const clearButton = document.getElementById('clearButton');
 const toast = document.getElementById('toast');
-
-
 
 const residentAttendanceButton = document.getElementById('residentAttendanceButton');
 const residentAttendanceCount = document.getElementById('residentAttendanceCount');
@@ -133,15 +124,6 @@ const ensureFlatpickrLoaded = () => {
     return flatpickrLoadPromise;
 };
 
-const toLocalISODate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-const todayISO = () => toLocalISODate(new Date());
-
 if (window.matchMedia) {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     applySystemTheme(mediaQuery.matches);
@@ -160,26 +142,6 @@ const getInitialState = () => ({
     residentsPresent: []
 });
 
-const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-const formatDate = (isoDate) => {
-    if (!isoDate) return '-';
-    const date = new Date(`${isoDate}T00:00:00`);
-    if (Number.isNaN(date.getTime())) return isoDate;
-    const dateText = new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    }).format(date);
-    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
-    return `${dateText}, ${dayName}`;
-};
-
 const showToast = (message) => {
     toast.textContent = message;
     toast.classList.add('show');
@@ -190,18 +152,7 @@ const showToast = (message) => {
     }, 1800);
 };
 
-const loadState = () => {
-    try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        const loaded = { ...getInitialState(), ...(saved || {}) };
-        if (loaded.type === 'Practical') {
-            loaded.presenter = '';
-        }
-        return loaded;
-    } catch (_) {
-        return getInitialState();
-    }
-};
+const loadState = () => loadStateFromStorage(STORAGE_KEY, getInitialState);
 
 let state = loadState();
 let undoStack = [JSON.stringify(state)];
@@ -211,11 +162,7 @@ const MAX_UNDO_HISTORY = 200;
 let saveStateTimeout = null;
 const saveState = (immediate = false) => {
     const performSave = () => {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (_) {
-            // Keep functional even if storage is blocked.
-        }
+        safeStorage.set(STORAGE_KEY, JSON.stringify(state));
         if (saveStateTimeout) {
             clearTimeout(saveStateTimeout);
             saveStateTimeout = null;
@@ -230,40 +177,6 @@ const saveState = (immediate = false) => {
     }
 };
 
-const getSelectedResidents = () => (Array.isArray(state.residentsPresent) ? state.residentsPresent : []);
-const displayValue = (value) => String(value ?? '').trim() || '-';
-const getResidentsPresentText = () => {
-    const selected = getSelectedResidents();
-    const lines = RESIDENT_GROUPS.map(group => {
-        const presentInGroup = group.names.filter(name => selected.includes(name));
-        return `${group.level} - ${presentInGroup.join(', ')}`;
-    });
-    return lines.join('\n');
-};
-
-const getResidentsAbsentText = () => {
-    const selected = getSelectedResidents();
-    const absent = [];
-    RESIDENT_GROUPS.forEach(group => {
-        group.names.forEach(name => {
-            if (!selected.includes(name)) {
-                absent.push(name);
-            }
-        });
-    });
-    return `Absent - ${absent.join(', ')}`;
-};
-
-const getReportRows = () => [
-    ['Date', formatDate(state.date)],
-    ['Topic', displayValue(state.topic)],
-    ['Type', displayValue(state.type)],
-    ['Presenter', displayValue(state.presenter)],
-    ['Senior Resident', displayValue(state.seniorResident)],
-    ['Moderator', displayValue(state.moderator)],
-    ['Resident Present', getResidentsPresentText()]
-];
-
 const getReportCardClass = (label) => {
     const wideClass = label === 'Topic' || label === 'Resident Present' ? ' wide-card' : '';
     return `report-card ${label.toLowerCase().replace(/\s+/g, '-')}-card${wideClass}`;
@@ -272,7 +185,7 @@ const getReportCardClass = (label) => {
 const initializeReportDOM = () => {
     liveReport.innerHTML = `
         <div class="report-block">
-            ${getReportRows().map(([label, value]) => `
+            ${getReportRows(state).map(([label, value]) => `
                 <div id="card-${label.toLowerCase().replace(/\s+/g, '-')}" class="${getReportCardClass(label)}">
                     <p class="report-label">${escapeHtml(label)}</p>
                     <p class="report-value">${escapeHtml(value)}</p>
@@ -288,7 +201,7 @@ const renderReport = () => {
         return;
     }
 
-    const rows = getReportRows();
+    const rows = getReportRows(state);
     rows.forEach(([label, value]) => {
         const cardId = `card-${label.toLowerCase().replace(/\s+/g, '-')}`;
         const card = document.getElementById(cardId);
@@ -329,7 +242,7 @@ const updatePickerButtons = () => {
     moderatorPickerValue.textContent = state.moderator || '';
     moderatorPickerButton.classList.toggle('empty-picker', !state.moderator);
 
-    const selectedCount = getSelectedResidents().length;
+    const selectedCount = getSelectedResidents(state).length;
     residentAttendanceCount.textContent = String(selectedCount);
     residentAttendanceButton.querySelector('span').textContent = selectedCount
         ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
@@ -342,31 +255,6 @@ const updatePickerButtons = () => {
         button.classList.toggle('active', state.date === toLocalISODate(date));
     });
 };
-
-const buildGoogleDocText = () => getReportRows()
-    .filter(([label]) => !(state.type === 'Practical' && label === 'Presenter'))
-    .map(([label, value]) => {
-        if (label === 'Resident Present') {
-            return `${label}:\n${value}\n${getResidentsAbsentText()}`;
-        }
-        return `${label}: ${value}`;
-    }).join('\n');
-
-const buildGoogleDocHtml = () => getReportRows()
-    .filter(([label]) => !(state.type === 'Practical' && label === 'Presenter'))
-    .map(([label, value]) => {
-        const escapedLabel = escapeHtml(label);
-        const escapedValue = escapeHtml(value).replace(/\n/g, '<br>');
-        
-        if (label === 'Date') {
-            return `<div style="margin: 0; line-height: 1.15; font-weight: bold;">${escapedLabel}: ${escapedValue}</div>`;
-        }
-        if (label === 'Resident Present') {
-            const escapedAbsent = escapeHtml(getResidentsAbsentText());
-            return `<div style="margin: 0; line-height: 1.15; font-weight: normal;">${escapedLabel}:<br>${escapedValue}<br>${escapedAbsent}</div>`;
-        }
-        return `<div style="margin: 0; line-height: 1.15; font-weight: normal;">${escapedLabel}: ${escapedValue}</div>`;
-    }).join('');
 
 const copyText = async (plainText, htmlText) => {
     if (navigator.clipboard && window.ClipboardItem) {
@@ -453,7 +341,7 @@ const setState = (patch) => {
 };
 
 const renderResidentChecklist = () => {
-    const selectedSet = new Set(getSelectedResidents());
+    const selectedSet = new Set(getSelectedResidents(state));
     residentChecklist.innerHTML = RESIDENT_GROUPS.map((group, groupIndex) => {
         const allSelected = group.names.every(name => selectedSet.has(name));
         return `
@@ -474,7 +362,7 @@ const renderResidentChecklist = () => {
         </section>
         `;
     }).join('');
-    residentSelectAll.checked = getSelectedResidents().length === ALL_RESIDENTS.length;
+    residentSelectAll.checked = getSelectedResidents(state).length === ALL_RESIDENTS.length;
 };
 
 const openResidentModal = () => {
@@ -582,7 +470,7 @@ residentChecklist.addEventListener('change', (e) => {
         const group = RESIDENT_GROUPS[groupIndex];
         const isChecked = e.target.checked;
         
-        let selectedSet = new Set(getSelectedResidents());
+        let selectedSet = new Set(getSelectedResidents(state));
         group.names.forEach(name => {
             if (isChecked) selectedSet.add(name);
             else selectedSet.delete(name);
@@ -685,7 +573,6 @@ document.addEventListener('keydown', (event) => {
             closeResidentModal();
             return;
         }
-
     }
 
     // Alt+T — jump to Topic input
@@ -723,7 +610,7 @@ document.addEventListener('keydown', (event) => {
 
 copyDocButton.addEventListener('click', async () => {
     try {
-        await copyText(buildGoogleDocText(), buildGoogleDocHtml());
+        await copyText(buildGoogleDocText(state), buildGoogleDocHtml(state));
         showToast('Copied G-Doc data');
         
         copyDocButton.classList.add('success');
