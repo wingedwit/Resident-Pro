@@ -1,3 +1,8 @@
+const trackEvent = (eventName, params = {}) => {
+    if (typeof window.gtag !== 'function') return;
+    window.gtag('event', eventName, params);
+};
+
 const STORAGE_KEY = 'residentProData';
 
 // Destructure utilities and logic from global modules
