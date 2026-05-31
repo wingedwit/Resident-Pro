@@ -39,6 +39,8 @@ const fields = {
 const liveReport = document.getElementById('liveReport');
 const copyDocButton = document.getElementById('copyDocButton');
 const copyDocIcon = document.getElementById('copyDocIcon');
+const mobileReportCopyButton = document.getElementById('mobileReportCopyButton');
+const mobileReportCopyIcon = document.getElementById('mobileReportCopyIcon');
 const undoButton = document.getElementById('undoButton');
 const redoButton = document.getElementById('redoButton');
 const mobileCopyButton = document.getElementById('mobileCopyButton');
@@ -630,14 +632,26 @@ copyDocButton.addEventListener('click', async () => {
         
         copyDocButton.classList.add('success');
         copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        if (mobileReportCopyButton && mobileReportCopyIcon) {
+            mobileReportCopyButton.classList.add('success');
+            mobileReportCopyIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        }
         
         setTimeout(() => {
             copyDocButton.classList.remove('success');
             copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"></path>';
+            if (mobileReportCopyButton && mobileReportCopyIcon) {
+                mobileReportCopyButton.classList.remove('success');
+                mobileReportCopyIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"></path>';
+            }
         }, 2000);
     } catch (_) {
         showToast('Copy failed');
     }
+});
+
+mobileReportCopyButton?.addEventListener('click', () => {
+    copyDocButton.click();
 });
 
 clearButton.addEventListener('click', () => {
