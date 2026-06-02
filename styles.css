@@ -1102,6 +1102,55 @@ select.form-input-m3 {
     }
 }
 
+.header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.48);
+}
+
+.dark .header-actions {
+    background: rgba(17, 24, 39, 0.42);
+}
+
+.header-toolbar-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.header-toolbar-btn:focus-visible,
+.action-btn:focus-visible,
+.attendance-button:focus-visible {
+    outline: 2px solid rgba(23, 105, 255, 0.45);
+    outline-offset: 3px;
+}
+
+.form-stack {
+    gap: 1rem;
+}
+
+.form-label-bold {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.35rem;
+    margin-bottom: 0.55rem;
+    letter-spacing: 0.04em;
+}
+
+.field {
+    gap: 0.55rem;
+}
+
+.form-input-m3,
+.attendance-button {
+    min-height: 3rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
     *,
