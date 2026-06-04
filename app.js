@@ -301,6 +301,25 @@ const copyText = async (plainText, htmlText) => {
     }
 };
 
+const copyGDocData = async (trigger = 'button') => {
+    try {
+        await copyText(buildGoogleDocText(state), buildGoogleDocHtml(state));
+        showToast('Copied G-Doc data');
+        
+        copyDocButton.classList.add('success');
+        copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        
+        setTimeout(() => {
+            copyDocButton.classList.remove('success');
+            copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"></path>';
+        }, 2000);
+
+        trackEvent('copy_gdoc_data', { trigger });
+    } catch (_) {
+        showToast('Copy failed');
+    }
+};
+
 const syncInputs = () => {
     Object.entries(fields).forEach(([key, input]) => {
         input.value = state[key] || '';
@@ -600,7 +619,7 @@ document.addEventListener('keydown', (event) => {
 
     if (event.ctrlKey && event.altKey && (event.key === 'c' || event.key === 'C')) {
         event.preventDefault();
-        copyDocButton.click();
+        copyGDocData('shortcut');
     }
 
     if (event.ctrlKey && event.key === 'Backspace') {
@@ -623,21 +642,7 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-copyDocButton.addEventListener('click', async () => {
-    try {
-        await copyText(buildGoogleDocText(state), buildGoogleDocHtml(state));
-        showToast('Copied G-Doc data');
-        
-        copyDocButton.classList.add('success');
-        copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
-        setTimeout(() => {
-            copyDocButton.classList.remove('success');
-            copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"></path>';
-        }, 2000);
-    } catch (_) {
-        showToast('Copy failed');
-    }
-});
+copyDocButton.addEventListener('click', () => copyGDocData('button'));
 
 clearButton.addEventListener('click', () => {
     state = getInitialState();
