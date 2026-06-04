@@ -1136,6 +1136,16 @@ select.form-input-m3 {
     border-bottom: 0;
 }
 
+#reportTitle {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    opacity: 0.9;
+}
+
 .attendance-link-icon {
     width: 2.75rem;
     min-width: 2.75rem;
