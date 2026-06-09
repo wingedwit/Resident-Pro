@@ -1,9 +1,21 @@
+const requiredResidentModules = [
+    'ResidentDateUtils',
+    'ResidentStorageUtils',
+    'ResidentLogic',
+    'ResidentConfig',
+    'ResidentUIUtils',
+    'ResidentReportUI'
+];
+requiredResidentModules.forEach((moduleName) => {
+    if (!window[moduleName]) {
+        throw new Error(`Resident Pro dependency missing: ${moduleName}. Check index.html script order.`);
+    }
+});
+
 const trackEvent = (eventName, params = {}) => {
     if (typeof window.gtag !== 'function') return;
     window.gtag('event', eventName, params);
 };
-
-const STORAGE_KEY = 'residentProData';
 
 // Destructure utilities and logic from global modules
 const {
@@ -16,6 +28,17 @@ const {
     safeStorage,
     loadStateFromStorage
 } = window.ResidentStorageUtils;
+const {
+    createToast,
+    copyText: copyTextWithFallback,
+    createCopyFeedback
+} = window.ResidentUIUtils;
+const {
+    STORAGE_KEY,
+    MAX_UNDO_HISTORY,
+    createInitialState
+} = window.ResidentConfig;
+const { createReportRenderer } = window.ResidentReportUI;
 
 const {
     RESIDENT_GROUPS,
@@ -72,7 +95,6 @@ const pickerDoneButton = document.getElementById('pickerDoneButton');
 
 const datePillButtons = Array.from(document.querySelectorAll('[data-date-offset]'));
 
-let toastTimer = null;
 let activePicker = null;
 
 const FLATPICKR_SCRIPT_SRC = './assets/vendor/flatpickr/flatpickr.min.js';
@@ -137,33 +159,16 @@ if (window.matchMedia) {
     else if (typeof mediaQuery.addListener === 'function') mediaQuery.addListener(handleThemeChange);
 }
 
-const getInitialState = () => ({
-    date: todayISO(),
-    topic: '',
-    type: '',
-    presenter: '',
-    seniorResident: '',
-    moderator: '',
-    residentsPresent: []
-});
+const getInitialState = () => createInitialState(todayISO());
 
-const showToast = (message) => {
-    toast.textContent = message;
-    toast.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-        toastTimer = null;
-    }, 1800);
-};
+const showToast = createToast(toast);
+const triggerCopySuccess = createCopyFeedback(copyDocButton, copyDocIcon);
 
 const loadState = () => loadStateFromStorage(STORAGE_KEY, getInitialState);
 
 let state = loadState();
 let undoStack = [JSON.stringify(state)];
 let redoStack = [];
-const MAX_UNDO_HISTORY = 200;
-
 let saveStateTimeout = null;
 const saveState = (immediate = false) => {
     const performSave = () => {
@@ -182,53 +187,8 @@ const saveState = (immediate = false) => {
     }
 };
 
-const getReportCardClass = (label) => {
-    const wideClass = label === 'Topic' || label === 'Resident Present' ? ' wide-card' : '';
-    return `report-card ${label.toLowerCase().replace(/\s+/g, '-')}-card${wideClass}`;
-};
-
-const initializeReportDOM = () => {
-    liveReport.innerHTML = `
-        <div class="report-block">
-            ${getReportRows(state).map(([label, value]) => {
-                const cardClass = getReportCardClass(label);
-                return `
-                    <div id="card-${label.toLowerCase().replace(/\s+/g, '-')}" class="${cardClass}">
-                        <div class="report-card-header">
-                            <p class="report-label">${escapeHtml(label)}</p>
-                        </div>
-                        <p class="report-value">${escapeHtml(value)}</p>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-};
-
-const renderReport = () => {
-    if (!liveReport.querySelector('.report-block')) {
-        initializeReportDOM();
-        return;
-    }
-
-    const rows = getReportRows(state);
-    rows.forEach(([label, value]) => {
-        const cardId = `card-${label.toLowerCase().replace(/\s+/g, '-')}`;
-        const card = document.getElementById(cardId);
-        if (card) {
-            const valueEl = card.querySelector('.report-value');
-            if (valueEl) {
-                if (valueEl.textContent !== value) {
-                    valueEl.textContent = value;
-                    
-                    card.classList.remove('flash');
-                    void card.offsetWidth; // Force reflow
-                    card.classList.add('flash');
-                }
-            }
-        }
-    });
-};
+const reportRenderer = createReportRenderer({ liveReport, getReportRows, escapeHtml });
+const renderReport = () => reportRenderer.render(state);
 
 const updatePickerButtons = () => {
     typePickerValue.textContent = state.type || '';
@@ -266,53 +226,14 @@ const updatePickerButtons = () => {
     });
 };
 
-const copyText = async (plainText, htmlText) => {
-    if (navigator.clipboard && window.ClipboardItem) {
-        try {
-            const plainBlob = new Blob([plainText], { type: 'text/plain' });
-            const htmlBlob = new Blob([htmlText], { type: 'text/html' });
-            const item = new ClipboardItem({
-                'text/plain': plainBlob,
-                'text/html': htmlBlob
-            });
-            await navigator.clipboard.write([item]);
-            return;
-        } catch (err) {
-            console.warn('ClipboardItem copy failed, falling back to writeText:', err);
-        }
-    }
-
-    if (navigator.clipboard) {
-        await navigator.clipboard.writeText(plainText);
-        return;
-    }
-
-    const textArea = document.createElement('textarea');
-    textArea.value = plainText;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    try {
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-    } finally {
-        document.body.removeChild(textArea);
-    }
-};
+const copyText = copyTextWithFallback;
 
 const copyGDocData = async (trigger = 'button') => {
     try {
         await copyText(buildGoogleDocText(state), buildGoogleDocHtml(state));
         showToast('Copied G-Doc data');
         
-        copyDocButton.classList.add('success');
-        copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
-        
-        setTimeout(() => {
-            copyDocButton.classList.remove('success');
-            copyDocIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"></path>';
-        }, 2000);
+        triggerCopySuccess();
 
         trackEvent('copy_gdoc_data', { trigger });
     } catch (_) {
