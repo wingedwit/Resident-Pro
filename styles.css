@@ -1157,7 +1157,7 @@ select.form-input-m3 {
 
 .attendance-link-icon:focus-visible {
     outline: 2px solid rgba(23, 105, 255, 0.5);
-    outline-offset: 3px;
+    outline-offset: 2px;
 }
 
 .header-toolbar-btn:focus-visible,
