@@ -1012,23 +1012,6 @@ select.form-input-m3 {
     }
 }
 
-/* Report card update animation */
-.report-card.flash {
-    animation: flashHighlight 0.6s ease-out;
-}
-
-@keyframes flashHighlight {
-    0% {
-        background-color: var(--primary-soft);
-        transform: scale(1.02);
-    }
-
-    100% {
-        background-color: var(--panel-strong);
-        transform: scale(1);
-    }
-}
-
 /* Copy button success state */
 .download-button.success {
     background: #10b981;

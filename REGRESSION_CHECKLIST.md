@@ -15,7 +15,7 @@ Run this checklist after extracting or changing a module.
 
 ## Report And Feedback
 
-- Live report initializes and updates changed cards with the flash animation.
+- Live report initializes and updates values without flash animation.
 - Copy G-Doc produces the expected plain-text and rich-text report.
 - Copy success animation returns to its default icon.
 - Toasts appear and dismiss after copy and reset actions.

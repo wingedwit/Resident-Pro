@@ -50,7 +50,7 @@ The persisted state uses the `residentProData` key and includes:
 
 - Resident groups, selection rules, or report content: `lib/resident-logic.js`
 - Clipboard, toast, or success animation: `lib/ui-utils.js`
-- Live-report card rendering or update animation: `lib/report-ui.js`
+- Live-report card rendering: `lib/report-ui.js`
 - Initial state, storage key, or undo limit: `lib/app-config.js`
 - Date formatting: `lib/date-utils.js`
 - Modal behavior, rendering, or event wiring: `app.js`
