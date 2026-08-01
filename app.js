@@ -593,7 +593,7 @@ redoButton?.addEventListener('click', () => {
 
 mobileCopyButton?.addEventListener('click', async () => {
     try {
-        await copyText('8890259964');
+        await copyText('+919468937372');
         showToast('Copied Mobile Number');
     } catch (_) {}
 });
