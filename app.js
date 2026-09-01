@@ -605,9 +605,13 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (event.ctrlKey && event.altKey && (event.key === 'c' || event.key === 'C')) {
+    const isDocShortcut = event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey &&
+        (event.code === 'KeyD' || event.key === 'd' || event.key === 'D' || event.code === 'KeyC' || event.key === 'c' || event.key === 'C');
+
+    if (isDocShortcut) {
         event.preventDefault();
         copyGDocData('shortcut');
+        return;
     }
 
     if (event.ctrlKey && event.key === 'Backspace') {
