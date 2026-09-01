@@ -97,6 +97,35 @@ const datePillButtons = Array.from(document.querySelectorAll('[data-date-offset]
 
 let activePicker = null;
 
+const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const getFocusableElements = (container) => Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0
+);
+
+const trapFocusInModal = (modal, event) => {
+    if (event.key !== 'Tab') return;
+    const focusable = getFocusableElements(modal);
+    if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey) {
+        if (document.activeElement === first || !modal.contains(document.activeElement)) {
+            event.preventDefault();
+            last.focus();
+        }
+    } else {
+        if (document.activeElement === last || !modal.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+};
+
 const FLATPICKR_SCRIPT_SRC = './assets/vendor/flatpickr/flatpickr.min.js';
 let flatpickrLoadPromise = null;
 let flatpickrInstance = null;
@@ -295,40 +324,61 @@ const setState = (patch) => {
     updateUndoRedoButtons();
 };
 
-const renderResidentChecklist = () => {
-    const selectedSet = new Set(getSelectedResidents(state));
-    residentChecklist.innerHTML = RESIDENT_GROUPS.map((group, groupIndex) => {
-        const allSelected = group.names.every(name => selectedSet.has(name));
-        return `
-        <section class="resident-group">
+let residentChecklistRendered = false;
+
+const renderResidentChecklistStructure = () => {
+    if (residentChecklistRendered && residentChecklist.children.length > 0) return;
+    residentChecklist.innerHTML = RESIDENT_GROUPS.map((group, groupIndex) => `
+        <section class="resident-group" data-group-index="${groupIndex}">
             <div class="resident-group-header">
                 <h3 class="resident-group-title">${escapeHtml(group.level)}</h3>
                 <label class="group-select-all" aria-label="Select all ${escapeHtml(group.level)}">
-                    <input type="checkbox" class="group-checkbox" data-group-index="${groupIndex}" ${allSelected ? 'checked' : ''}>
+                    <input type="checkbox" class="group-checkbox" data-group-index="${groupIndex}">
                     <span>All</span>
                 </label>
             </div>
             ${group.names.map((name) => `
                 <label class="resident-option">
-                    <input type="checkbox" class="resident-checkbox" value="${escapeHtml(name)}" ${selectedSet.has(name) ? 'checked' : ''}>
+                    <input type="checkbox" class="resident-checkbox" value="${escapeHtml(name)}">
                     <span>${escapeHtml(name)}</span>
                 </label>
             `).join('')}
         </section>
-        `;
-    }).join('');
-    residentSelectAll.checked = getSelectedResidents(state).length === ALL_RESIDENTS.length;
+    `).join('');
+    residentChecklistRendered = true;
+};
+
+const syncResidentChecklistCheckboxes = () => {
+    renderResidentChecklistStructure();
+    const selectedSet = new Set(getSelectedResidents(state));
+    const residentCheckboxes = residentChecklist.querySelectorAll('.resident-checkbox');
+    residentCheckboxes.forEach((checkbox) => {
+        checkbox.checked = selectedSet.has(checkbox.value);
+    });
+
+    const groupCheckboxes = residentChecklist.querySelectorAll('.group-checkbox');
+    groupCheckboxes.forEach((groupCheckbox) => {
+        const groupIndex = Number(groupCheckbox.dataset.groupIndex);
+        const group = RESIDENT_GROUPS[groupIndex];
+        if (group) {
+            groupCheckbox.checked = group.names.length > 0 && group.names.every((name) => selectedSet.has(name));
+        }
+    });
+
+    residentSelectAll.checked = ALL_RESIDENTS.length > 0 && selectedSet.size === ALL_RESIDENTS.length;
 };
 
 const openResidentModal = () => {
-    renderResidentChecklist();
+    syncResidentChecklistCheckboxes();
     residentModal.classList.remove('hidden');
+    residentAttendanceButton.setAttribute('aria-expanded', 'true');
     const firstCheckbox = residentChecklist.querySelector('input[type="checkbox"]');
     if (firstCheckbox) firstCheckbox.focus();
 };
 
 const closeResidentModal = () => {
     residentModal.classList.add('hidden');
+    residentAttendanceButton.setAttribute('aria-expanded', 'false');
     residentAttendanceButton.focus();
 };
 
@@ -356,13 +406,19 @@ const openPickerModal = (config) => {
             </label>
         `).join('');
     pickerModal.classList.remove('hidden');
+    if (config.returnButton) {
+        config.returnButton.setAttribute('aria-expanded', 'true');
+    }
     const firstCheckbox = pickerChecklist.querySelector('input[type="checkbox"]');
     if (firstCheckbox) firstCheckbox.focus();
 };
 
 const closePickerModal = () => {
     pickerModal.classList.add('hidden');
-    if (activePicker && activePicker.returnButton) activePicker.returnButton.focus();
+    if (activePicker && activePicker.returnButton) {
+        activePicker.returnButton.setAttribute('aria-expanded', 'false');
+        activePicker.returnButton.focus();
+    }
     activePicker = null;
 };
 
@@ -416,7 +472,7 @@ residentAttendanceButton.addEventListener('click', openResidentModal);
 residentDoneButton.addEventListener('click', closeResidentModal);
 residentClearButton.addEventListener('click', () => {
     setState({ residentsPresent: [] });
-    renderResidentChecklist();
+    syncResidentChecklistCheckboxes();
 });
 
 residentChecklist.addEventListener('change', (e) => {
@@ -432,24 +488,29 @@ residentChecklist.addEventListener('change', (e) => {
         });
         
         setState({ residentsPresent: Array.from(selectedSet) });
-        renderResidentChecklist();
+        syncResidentChecklistCheckboxes();
         return;
     }
 
     const selected = Array.from(residentChecklist.querySelectorAll('.resident-checkbox:checked')).map((input) => input.value);
     setState({ residentsPresent: selected });
-    residentSelectAll.checked = selected.length === ALL_RESIDENTS.length;
-    renderResidentChecklist();
+    syncResidentChecklistCheckboxes();
 });
 
 residentSelectAll.addEventListener('change', () => {
     const next = residentSelectAll.checked ? [...ALL_RESIDENTS] : [];
     setState({ residentsPresent: next });
-    renderResidentChecklist();
+    syncResidentChecklistCheckboxes();
 });
 
 residentModal.addEventListener('click', (event) => {
     if (event.target === residentModal) closeResidentModal();
+});
+
+residentModal.addEventListener('keydown', (event) => {
+    if (!residentModal.classList.contains('hidden')) {
+        trapFocusInModal(residentModal, event);
+    }
 });
 
 typePickerButton.addEventListener('click', () => {
@@ -516,6 +577,12 @@ pickerClearButton.addEventListener('click', () => {
 
 pickerModal.addEventListener('click', (event) => {
     if (event.target === pickerModal) closePickerModal();
+});
+
+pickerModal.addEventListener('keydown', (event) => {
+    if (!pickerModal.classList.contains('hidden')) {
+        trapFocusInModal(pickerModal, event);
+    }
 });
 
 document.addEventListener('keydown', (event) => {

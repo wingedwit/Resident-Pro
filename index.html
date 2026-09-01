@@ -87,35 +87,35 @@
 
                     <div class="field" style="--i:2">
                         <span class="form-label-bold">Type</span>
-                        <button id="typePickerButton" class="attendance-button action-btn empty-picker" type="button">
+                        <button id="typePickerButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span id="typePickerValue"></span>
                         </button>
                     </div>
 
                     <div class="field" style="--i:3">
                         <span class="form-label-bold">Presenter</span>
-                        <button id="presenterPickerButton" class="attendance-button action-btn empty-picker" type="button">
+                        <button id="presenterPickerButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span id="presenterPickerValue"></span>
                         </button>
                     </div>
 
                     <div class="field" style="--i:4">
                         <span class="form-label-bold">Senior Resident</span>
-                        <button id="seniorPickerButton" class="attendance-button action-btn empty-picker" type="button">
+                        <button id="seniorPickerButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span id="seniorPickerValue"></span>
                         </button>
                     </div>
 
                     <div class="field" style="--i:5">
                         <span class="form-label-bold">Moderator</span>
-                        <button id="moderatorPickerButton" class="attendance-button action-btn empty-picker" type="button">
+                        <button id="moderatorPickerButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span id="moderatorPickerValue"></span>
                         </button>
                     </div>
 
                     <div class="field attendance-field" style="--i:6">
                         <span class="form-label-bold">Resident Attendance</span>
-                        <button id="residentAttendanceButton" class="attendance-button action-btn empty-picker" type="button">
+                        <button id="residentAttendanceButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span></span>
                             <strong id="residentAttendanceCount">0</strong>
                         </button>
@@ -179,8 +179,6 @@
 
         <div id="toast" role="status" aria-live="polite"></div>
     </div>
-
-
 
     <div id="residentModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="residentModalTitle">
         <section class="modal-panel">
