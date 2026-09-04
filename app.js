@@ -72,6 +72,10 @@ const toast = document.getElementById('toast');
 const residentAttendanceButton = document.getElementById('residentAttendanceButton');
 const residentAttendanceCount = document.getElementById('residentAttendanceCount');
 const residentModal = document.getElementById('residentModal');
+const residentModalClose = document.getElementById('residentModalClose');
+const residentSearchInput = document.getElementById('residentSearchInput');
+const residentSearchClear = document.getElementById('residentSearchClear');
+const residentEmptySearch = document.getElementById('residentEmptySearch');
 const residentChecklist = document.getElementById('residentChecklist');
 const residentClearButton = document.getElementById('residentClearButton');
 const residentDoneButton = document.getElementById('residentDoneButton');
@@ -88,6 +92,9 @@ const moderatorPickerValue = document.getElementById('moderatorPickerValue');
 
 const pickerModal = document.getElementById('pickerModal');
 const pickerModalTitle = document.getElementById('pickerModalTitle');
+const pickerSearchInput = document.getElementById('pickerSearchInput');
+const pickerSearchClear = document.getElementById('pickerSearchClear');
+const pickerEmptySearch = document.getElementById('pickerEmptySearch');
 const pickerChecklist = document.getElementById('pickerChecklist');
 const pickerModalClose = document.getElementById('pickerModalClose');
 const pickerClearButton = document.getElementById('pickerClearButton');
@@ -96,6 +103,26 @@ const pickerDoneButton = document.getElementById('pickerDoneButton');
 const datePillButtons = Array.from(document.querySelectorAll('[data-date-offset]'));
 
 let activePicker = null;
+
+const updateBodyScrollLock = () => {
+    const isAnyModalOpen =
+        (!residentModal.classList.contains('hidden') && !residentModal.classList.contains('is-closing')) ||
+        (!pickerModal.classList.contains('hidden') && !pickerModal.classList.contains('is-closing'));
+    document.body.classList.toggle('modal-open', isAnyModalOpen);
+};
+
+const closeModalWithAnimation = (modal, onComplete) => {
+    if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
+    modal.classList.add('is-closing');
+    setTimeout(() => {
+        modal.classList.remove('is-closing');
+        modal.classList.add('hidden');
+        updateBodyScrollLock();
+        if (typeof onComplete === 'function') {
+            onComplete();
+        }
+    }, 180);
+};
 
 const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -337,15 +364,79 @@ const renderResidentChecklistStructure = () => {
                     <span>All</span>
                 </label>
             </div>
-            ${group.names.map((name) => `
-                <label class="resident-option">
-                    <input type="checkbox" class="resident-checkbox" value="${escapeHtml(name)}">
-                    <span>${escapeHtml(name)}</span>
-                </label>
-            `).join('')}
+            <div class="resident-group-list">
+                ${group.names.map((name) => `
+                    <label class="resident-option">
+                        <input type="checkbox" class="resident-checkbox" value="${escapeHtml(name)}">
+                        <span>${escapeHtml(name)}</span>
+                    </label>
+                `).join('')}
+            </div>
         </section>
     `).join('');
     residentChecklistRendered = true;
+};
+
+const filterResidentChecklist = (query) => {
+    const cleanQuery = query.trim().toLowerCase();
+    const groups = residentChecklist.querySelectorAll('.resident-group');
+    let totalVisible = 0;
+
+    groups.forEach((group) => {
+        const options = group.querySelectorAll('.resident-option');
+        let groupVisible = 0;
+
+        options.forEach((option) => {
+            const name = option.querySelector('span')?.textContent.toLowerCase() || '';
+            const matches = !cleanQuery || name.includes(cleanQuery);
+            option.classList.toggle('hidden', !matches);
+            if (matches) {
+                groupVisible++;
+                totalVisible++;
+            }
+        });
+
+        group.classList.toggle('hidden', groupVisible === 0);
+    });
+
+    residentEmptySearch.classList.toggle('hidden', totalVisible > 0);
+    residentSearchClear.classList.toggle('hidden', cleanQuery.length === 0);
+};
+
+const filterPickerChecklist = (query) => {
+    const cleanQuery = query.trim().toLowerCase();
+    const groups = pickerChecklist.querySelectorAll('.resident-group');
+    let totalVisible = 0;
+
+    if (groups.length > 0) {
+        groups.forEach((group) => {
+            const options = group.querySelectorAll('.picker-option');
+            let groupVisible = 0;
+
+            options.forEach((option) => {
+                const name = option.querySelector('.picker-option-label')?.textContent.toLowerCase() || '';
+                const matches = !cleanQuery || name.includes(cleanQuery);
+                option.classList.toggle('hidden', !matches);
+                if (matches) {
+                    groupVisible++;
+                    totalVisible++;
+                }
+            });
+
+            group.classList.toggle('hidden', groupVisible === 0);
+        });
+    } else {
+        const options = pickerChecklist.querySelectorAll('.picker-option');
+        options.forEach((option) => {
+            const name = option.querySelector('.picker-option-label')?.textContent.toLowerCase() || '';
+            const matches = !cleanQuery || name.includes(cleanQuery);
+            option.classList.toggle('hidden', !matches);
+            if (matches) totalVisible++;
+        });
+    }
+
+    pickerEmptySearch.classList.toggle('hidden', totalVisible > 0);
+    pickerSearchClear.classList.toggle('hidden', cleanQuery.length === 0);
 };
 
 const syncResidentChecklistCheckboxes = () => {
@@ -353,7 +444,12 @@ const syncResidentChecklistCheckboxes = () => {
     const selectedSet = new Set(getSelectedResidents(state));
     const residentCheckboxes = residentChecklist.querySelectorAll('.resident-checkbox');
     residentCheckboxes.forEach((checkbox) => {
-        checkbox.checked = selectedSet.has(checkbox.value);
+        const isChecked = selectedSet.has(checkbox.value);
+        checkbox.checked = isChecked;
+        const parentOption = checkbox.closest('.resident-option');
+        if (parentOption) {
+            parentOption.classList.toggle('is-selected', isChecked);
+        }
     });
 
     const groupCheckboxes = residentChecklist.querySelectorAll('.group-checkbox');
@@ -369,56 +465,74 @@ const syncResidentChecklistCheckboxes = () => {
 };
 
 const openResidentModal = () => {
+    residentSearchInput.value = '';
+    residentSearchClear.classList.add('hidden');
+    residentEmptySearch.classList.add('hidden');
+    filterResidentChecklist('');
     syncResidentChecklistCheckboxes();
     residentModal.classList.remove('hidden');
+    residentModal.classList.remove('is-closing');
+    updateBodyScrollLock();
     residentAttendanceButton.setAttribute('aria-expanded', 'true');
-    const firstCheckbox = residentChecklist.querySelector('input[type="checkbox"]');
-    if (firstCheckbox) firstCheckbox.focus();
+    residentSearchInput.focus();
 };
 
 const closeResidentModal = () => {
-    residentModal.classList.add('hidden');
-    residentAttendanceButton.setAttribute('aria-expanded', 'false');
-    residentAttendanceButton.focus();
+    closeModalWithAnimation(residentModal, () => {
+        residentAttendanceButton.setAttribute('aria-expanded', 'false');
+        residentAttendanceButton.focus();
+    });
 };
 
 const openPickerModal = (config) => {
     activePicker = config;
     pickerModalTitle.textContent = config.title;
+    pickerSearchInput.value = '';
+    const placeholderNoun = config.title.replace(/^Select\s+/i, '');
+    pickerSearchInput.placeholder = `Search ${placeholderNoun}...`;
+    pickerSearchClear.classList.add('hidden');
+    pickerEmptySearch.classList.add('hidden');
     const selectedValue = String(state[config.stateKey] || '');
     pickerChecklist.classList.toggle('grouped-checklist', Boolean(config.groups));
     pickerChecklist.innerHTML = config.groups
         ? config.groups.map((group) => `
             <section class="resident-group">
-                <h3 class="resident-group-title">${escapeHtml(group.level)}</h3>
-                ${group.names.map((name) => `
-                    <label class="resident-option">
-                        <input type="checkbox" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
-                        <span>${escapeHtml(name)}</span>
-                    </label>
-                `).join('')}
+                <div class="resident-group-header">
+                    <h3 class="resident-group-title">${escapeHtml(group.level)}</h3>
+                </div>
+                <div class="resident-group-list">
+                    ${group.names.map((name) => `
+                        <label class="picker-option ${selectedValue === name ? 'is-selected' : ''}">
+                            <span class="picker-option-label">${escapeHtml(name)}</span>
+                            <input type="radio" name="pickerChoice" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
+                        </label>
+                    `).join('')}
+                </div>
             </section>
         `).join('')
         : config.options.map((name) => `
-            <label class="resident-option">
-                <input type="checkbox" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
-                <span>${escapeHtml(name)}</span>
+            <label class="picker-option ${selectedValue === name ? 'is-selected' : ''}">
+                <span class="picker-option-label">${escapeHtml(name)}</span>
+                <input type="radio" name="pickerChoice" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
             </label>
         `).join('');
     pickerModal.classList.remove('hidden');
+    pickerModal.classList.remove('is-closing');
+    updateBodyScrollLock();
     if (config.returnButton) {
         config.returnButton.setAttribute('aria-expanded', 'true');
     }
-    const firstCheckbox = pickerChecklist.querySelector('input[type="checkbox"]');
-    if (firstCheckbox) firstCheckbox.focus();
+    pickerSearchInput.focus();
 };
 
 const closePickerModal = () => {
-    pickerModal.classList.add('hidden');
-    if (activePicker && activePicker.returnButton) {
-        activePicker.returnButton.setAttribute('aria-expanded', 'false');
-        activePicker.returnButton.focus();
-    }
+    const currentReturnButton = activePicker?.returnButton;
+    closeModalWithAnimation(pickerModal, () => {
+        if (currentReturnButton) {
+            currentReturnButton.setAttribute('aria-expanded', 'false');
+            currentReturnButton.focus();
+        }
+    });
     activePicker = null;
 };
 
@@ -503,6 +617,18 @@ residentSelectAll.addEventListener('change', () => {
     syncResidentChecklistCheckboxes();
 });
 
+residentModalClose?.addEventListener('click', closeResidentModal);
+
+residentSearchInput?.addEventListener('input', (event) => {
+    filterResidentChecklist(event.target.value);
+});
+
+residentSearchClear?.addEventListener('click', () => {
+    residentSearchInput.value = '';
+    filterResidentChecklist('');
+    residentSearchInput.focus();
+});
+
 residentModal.addEventListener('click', (event) => {
     if (event.target === residentModal) closeResidentModal();
 });
@@ -553,16 +679,24 @@ moderatorPickerButton.addEventListener('click', () => {
 pickerChecklist.addEventListener('change', (event) => {
     if (!activePicker) return;
     const target = event.target;
-    if (!target || target.type !== 'checkbox') return;
-    const checkboxes = Array.from(pickerChecklist.querySelectorAll('input[type="checkbox"]'));
-    checkboxes.forEach((input) => {
-        if (input !== target) input.checked = false;
+    if (!target || target.type !== 'radio') return;
+    pickerChecklist.querySelectorAll('.picker-option').forEach((opt) => {
+        const input = opt.querySelector('input[type="radio"]');
+        opt.classList.toggle('is-selected', input && input.checked);
     });
-    setState({ [activePicker.stateKey]: target.checked ? target.value : '' });
+    setState({ [activePicker.stateKey]: target.value });
     // Auto-close single-select picker after a brief moment so the selection is visible
-    if (target.checked) {
-        setTimeout(closePickerModal, 120);
-    }
+    setTimeout(closePickerModal, 140);
+});
+
+pickerSearchInput?.addEventListener('input', (event) => {
+    filterPickerChecklist(event.target.value);
+});
+
+pickerSearchClear?.addEventListener('click', () => {
+    pickerSearchInput.value = '';
+    filterPickerChecklist('');
+    pickerSearchInput.focus();
 });
 
 pickerModalClose.addEventListener('click', closePickerModal);
@@ -570,8 +704,11 @@ pickerDoneButton.addEventListener('click', closePickerModal);
 pickerClearButton.addEventListener('click', () => {
     if (!activePicker) return;
     setState({ [activePicker.stateKey]: '' });
-    pickerChecklist.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    pickerChecklist.querySelectorAll('input[type="radio"]').forEach((input) => {
         input.checked = false;
+    });
+    pickerChecklist.querySelectorAll('.picker-option').forEach((opt) => {
+        opt.classList.remove('is-selected');
     });
 });
 
@@ -588,10 +725,20 @@ pickerModal.addEventListener('keydown', (event) => {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
         if (!pickerModal.classList.contains('hidden')) {
+            if (document.activeElement === pickerSearchInput && pickerSearchInput.value) {
+                pickerSearchInput.value = '';
+                filterPickerChecklist('');
+                return;
+            }
             closePickerModal();
             return;
         }
         if (!residentModal.classList.contains('hidden')) {
+            if (document.activeElement === residentSearchInput && residentSearchInput.value) {
+                residentSearchInput.value = '';
+                filterResidentChecklist('');
+                return;
+            }
             closeResidentModal();
             return;
         }

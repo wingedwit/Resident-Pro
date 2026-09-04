@@ -185,11 +185,29 @@
         <section class="modal-panel">
             <header class="modal-header">
                 <h2 id="residentModalTitle" class="caps-bold-heading">Resident Attendance</h2>
-                <label class="modal-select-all">
-                    <input id="residentSelectAll" type="checkbox">
-                    <span>Select all</span>
-                </label>
+                <div class="modal-header-actions">
+                    <label class="modal-select-all">
+                        <input id="residentSelectAll" type="checkbox">
+                        <span>Select all</span>
+                    </label>
+                    <button id="residentModalClose" class="header-icon-button" type="button" title="Close" aria-label="Close resident attendance">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6 6 18"></path>
+                        </svg>
+                    </button>
+                </div>
             </header>
+            <div class="modal-search-wrapper">
+                <div class="modal-search-box">
+                    <svg class="modal-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" stroke-width="2"></circle>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 16l4.5 4.5"></path>
+                    </svg>
+                    <input type="text" id="residentSearchInput" class="modal-search-input" placeholder="Search residents by name..." autocomplete="off" spellcheck="false" aria-label="Search residents">
+                    <button type="button" id="residentSearchClear" class="modal-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+                </div>
+            </div>
+            <div id="residentEmptySearch" class="modal-empty-search hidden" role="status">No matching residents found.</div>
             <div id="residentChecklist" class="resident-checklist"></div>
             <footer class="modal-footer">
                 <button id="residentClearButton" class="modal-action secondary" type="button">Clear</button>
@@ -208,6 +226,17 @@
                     </svg>
                 </button>
             </header>
+            <div class="modal-search-wrapper">
+                <div class="modal-search-box">
+                    <svg class="modal-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" stroke-width="2"></circle>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 16l4.5 4.5"></path>
+                    </svg>
+                    <input type="text" id="pickerSearchInput" class="modal-search-input" placeholder="Search..." autocomplete="off" spellcheck="false" aria-label="Search options">
+                    <button type="button" id="pickerSearchClear" class="modal-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+                </div>
+            </div>
+            <div id="pickerEmptySearch" class="modal-empty-search hidden" role="status">No matching options found.</div>
             <div id="pickerChecklist" class="picker-checklist"></div>
             <footer class="modal-footer">
                 <button id="pickerClearButton" class="modal-action secondary" type="button">Clear</button>
