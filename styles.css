@@ -735,7 +735,7 @@ select.form-input-m3 {
     color: var(--text);
     font-size: 1.05rem;
     line-height: 1.45;
-    font-weight: 400;
+    font-weight: 800;
     overflow-wrap: anywhere;
 }
 
