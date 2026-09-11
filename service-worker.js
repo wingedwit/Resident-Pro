@@ -1,4 +1,4 @@
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 const CACHE_VERSION = `resident-pro-v${APP_VERSION}`;
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
@@ -10,10 +10,10 @@ const APP_SHELL = [
   './styles.css',
   './lib/date-utils.js',
   './lib/storage-utils.js',
-    './lib/resident-logic.js',
-    './lib/app-config.js',
-    './lib/ui-utils.js',
-    './lib/report-ui.js',
+  './lib/resident-logic.js',
+  './lib/app-config.js',
+  './lib/ui-utils.js',
+  './lib/report-ui.js',
   './app.js',
   './pwa-register.js',
   './manifest.webmanifest',
@@ -38,22 +38,14 @@ const OFFLINE_HTML = `<!doctype html>
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>You are offline</h1>
-    <p>Resident Pro could not load this page right now. Reconnect to the internet and refresh.</p>
-  </div>
+  <div class="card"><h1>You are offline</h1><p>Resident Pro could not load this page right now. Reconnect to the internet and refresh.</p></div>
 </body>
 </html>`;
 
-const shouldCacheResponse = (response) =>
-  Boolean(response) && response.ok && response.type === 'basic';
+const shouldCacheResponse = (response) => Boolean(response) && response.ok && response.type === 'basic';
 
 const addShellAsset = async (cache, url) => {
-  try {
-    await cache.add(url);
-  } catch (_) {
-    // A missing optional asset should not block service worker updates.
-  }
+  try { await cache.add(url); } catch (_) {}
 };
 
 const trimRuntimeCache = async () => {
@@ -75,18 +67,13 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(
-      names
-        .filter((name) => name !== SHELL_CACHE && name !== RUNTIME_CACHE)
-        .map((name) => caches.delete(name))
-    );
+    await Promise.all(names.filter((name) => name !== SHELL_CACHE && name !== RUNTIME_CACHE).map((name) => caches.delete(name)));
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
 
@@ -105,10 +92,7 @@ self.addEventListener('fetch', (event) => {
         if (cachedPage) return cachedPage;
         const cachedShell = await caches.match('./index.html');
         if (cachedShell) return cachedShell;
-        return new Response(OFFLINE_HTML, {
-          status: 200,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
+        return new Response(OFFLINE_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
     })());
     return;
@@ -117,7 +101,6 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cached = await caches.match(event.request);
     if (cached) return cached;
-
     try {
       const fresh = await fetch(event.request);
       if (shouldCacheResponse(fresh)) {
@@ -130,10 +113,7 @@ self.addEventListener('fetch', (event) => {
       if (event.request.destination === 'document') {
         const cachedShell = await caches.match('./index.html');
         if (cachedShell) return cachedShell;
-        return new Response(OFFLINE_HTML, {
-          status: 200,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        });
+        return new Response(OFFLINE_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
       return new Response('', { status: 503, statusText: 'Offline' });
     }
