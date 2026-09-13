@@ -1348,7 +1348,7 @@ select.form-input-m3 {
     font-size: 1.5rem;
     line-height: 2rem;
     font-weight: 700;
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
 }
 
 .report-header {
