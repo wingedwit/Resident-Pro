@@ -61,7 +61,7 @@ body {
 }
 
 body {
-    min-width: 1080px;
+    min-width: 0;
     min-height: 100vh;
     height: auto;
     overflow-x: hidden;
@@ -393,24 +393,31 @@ svg {
 }
 
 .form-input-m3:focus,
+.form-input-m3:focus-visible,
 .attendance-button:focus-visible,
 .date-pill:focus-visible,
 .header-icon-button:focus-visible,
+.header-toolbar-btn:focus-visible,
 .modal-action:focus-visible,
-.download-button:focus-visible {
+.download-button:focus-visible,
+.shortcut-help-btn:focus-visible {
+    outline: none;
     border-color: var(--primary);
     background-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 0 0 3px rgba(23, 105, 255, 0.12);
+    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary);
 }
 
 .dark .form-input-m3:focus,
+.dark .form-input-m3:focus-visible,
 .dark .attendance-button:focus-visible,
 .dark .date-pill:focus-visible,
 .dark .header-icon-button:focus-visible,
+.dark .header-toolbar-btn:focus-visible,
 .dark .modal-action:focus-visible,
-.dark .download-button:focus-visible {
+.dark .download-button:focus-visible,
+.dark .shortcut-help-btn:focus-visible {
     background-color: rgba(45, 54, 70, 0.95);
-    box-shadow: 0 0 0 3px rgba(149, 180, 227, 0.11);
+    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary);
 }
 
 .form-input-m3:hover,
@@ -421,8 +428,45 @@ svg {
 .attendance-button:hover,
 .download-button:hover,
 .header-icon-button:hover,
-.modal-action:hover {
+.header-toolbar-btn:hover,
+.modal-action:hover,
+.date-pill:hover {
     transform: translateY(-1px);
+}
+
+/* Micro-tactile press feedback */
+.action-btn,
+.date-pill,
+.header-toolbar-btn,
+.header-icon-button,
+.attendance-button,
+.modal-action,
+.shortcut-help-btn,
+.download-button {
+    transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.15s ease,
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease;
+    will-change: transform;
+}
+
+.action-btn:active,
+.date-pill:active,
+.header-toolbar-btn:active,
+.header-icon-button:active,
+.attendance-button:active,
+.modal-action:active,
+.shortcut-help-btn:active,
+.download-button:active {
+    transform: scale(0.96) translateY(1px) !important;
+}
+
+/* Cautionary micro-tilt on reset button */
+.header-toolbar-btn.danger:hover svg,
+.header-icon-button.danger:hover svg {
+    transform: rotate(-10deg);
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 select.form-input-m3 {
@@ -489,14 +533,18 @@ select.form-input-m3 {
 
 .date-pill.active {
     border-color: var(--primary);
-    color: var(--primary);
-    background: rgba(23, 105, 255, 0.08);
+    color: #ffffff;
+    background: var(--primary);
+    box-shadow: 0 2px 8px rgba(23, 105, 255, 0.28);
+    transform: translateY(-1px);
 }
 
 .dark .date-pill.active {
     border-color: var(--primary);
-    color: var(--primary);
-    background: rgba(102, 163, 255, 0.14);
+    color: #041735;
+    background: var(--primary);
+    box-shadow: 0 2px 8px rgba(102, 163, 255, 0.24);
+    transform: translateY(-1px);
 }
 
 .action-btn {
@@ -1227,9 +1275,35 @@ select.form-input-m3 {
 }
 
 /* Copy button success state */
+.download-button svg {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+}
+
 .download-button.success {
-    background: #10b981;
-    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.28);
+    background: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 10px 24px rgba(16, 185, 129, 0.32);
+}
+
+.download-button.success svg {
+    animation: checkmarkPop 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes checkmarkPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Numerical count spring bounce */
+@keyframes countBounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+}
+
+.count-pop {
+    display: inline-block;
+    animation: countBounce 240ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 /* Confirm Modal */
@@ -1484,6 +1558,35 @@ select.form-input-m3 {
     .input-shell,
     .report-shell {
         height: 100%;
+    }
+}
+
+@media (max-width: 1024px) {
+    body {
+        overflow-y: auto !important;
+        height: auto !important;
+    }
+
+    .app-shell {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: auto !important;
+        padding: 1rem !important;
+        overflow: visible !important;
+    }
+
+    .input-shell,
+    .report-shell {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+    }
+
+    #inputContainer,
+    #outputPanel {
+        max-height: none !important;
+        overflow-y: visible !important;
     }
 }
 

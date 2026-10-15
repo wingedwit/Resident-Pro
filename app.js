@@ -299,7 +299,12 @@ const syncUI = (state, { canUndo, canRedo }) => {
     moderatorPickerButton.classList.toggle('empty-picker', !state.moderator);
 
     const selectedCount = getSelectedResidents(state).length;
-    residentAttendanceCount.textContent = String(selectedCount);
+    if (residentAttendanceCount.textContent !== String(selectedCount)) {
+        residentAttendanceCount.textContent = String(selectedCount);
+        residentAttendanceCount.classList.remove('count-pop');
+        void residentAttendanceCount.offsetWidth;
+        residentAttendanceCount.classList.add('count-pop');
+    }
     const attendanceLabel = residentAttendanceButton.querySelector('span');
     if (attendanceLabel) {
         attendanceLabel.textContent = selectedCount
