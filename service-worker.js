@@ -1,4 +1,4 @@
-const APP_VERSION = '1.0.8';
+const APP_VERSION = '1.0.9';
 const CACHE_VERSION = `resident-pro-v${APP_VERSION}`;
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
@@ -14,6 +14,12 @@ const APP_SHELL = [
   './lib/app-config.js',
   './lib/ui-utils.js',
   './lib/report-ui.js',
+  './lib/modal-manager.js',
+  './lib/state-manager.js',
+  './lib/date-picker.js',
+  './lib/picker-modal.js',
+  './lib/resident-modal.js',
+  './lib/keyboard-shortcuts.js',
   './app.js',
   './pwa-register.js',
   './manifest.webmanifest',

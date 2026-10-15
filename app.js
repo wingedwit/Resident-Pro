@@ -4,8 +4,15 @@ const requiredResidentModules = [
     'ResidentLogic',
     'ResidentConfig',
     'ResidentUIUtils',
-    'ResidentReportUI'
+    'ResidentReportUI',
+    'ResidentModalManager',
+    'ResidentStateManager',
+    'ResidentDatePicker',
+    'ResidentPickerModal',
+    'ResidentModal',
+    'ResidentShortcuts'
 ];
+
 requiredResidentModules.forEach((moduleName) => {
     if (!window[moduleName]) {
         throw new Error(`Resident Pro dependency missing: ${moduleName}. Check index.html script order.`);
@@ -17,28 +24,23 @@ const trackEvent = (eventName, params = {}) => {
     window.gtag('event', eventName, params);
 };
 
-// Destructure utilities and logic from global modules
-const {
-    toLocalISODate,
-    todayISO,
-    formatDate
-} = window.ResidentDateUtils;
+// System color scheme listener
+if (window.matchMedia && typeof applySystemTheme === 'function') {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    applySystemTheme(mediaQuery.matches);
+    const handleThemeChange = (event) => applySystemTheme(event.matches);
+    if (typeof mediaQuery.addEventListener === 'function') mediaQuery.addEventListener('change', handleThemeChange);
+    else if (typeof mediaQuery.addListener === 'function') mediaQuery.addListener(handleThemeChange);
+}
 
-const {
-    safeStorage,
-    loadStateFromStorage
-} = window.ResidentStorageUtils;
-const {
-    createToast,
-    copyText: copyTextWithFallback,
-    createCopyFeedback
-} = window.ResidentUIUtils;
-const {
-    STORAGE_KEY,
-    MAX_UNDO_HISTORY,
-    createInitialState
-} = window.ResidentConfig;
+// Global module APIs
+const { createToast, copyText, createCopyFeedback } = window.ResidentUIUtils;
 const { createReportRenderer } = window.ResidentReportUI;
+const { createStateStore } = window.ResidentStateManager;
+const { createDatePickerController } = window.ResidentDatePicker;
+const { createPickerModalController } = window.ResidentPickerModal;
+const { createResidentModalController } = window.ResidentModal;
+const { initKeyboardShortcuts } = window.ResidentShortcuts;
 
 const {
     RESIDENT_GROUPS,
@@ -46,7 +48,6 @@ const {
     SENIOR_OPTIONS,
     TYPE_OPTIONS,
     PRESENTER_OPTIONS,
-    ALL_RESIDENTS,
     getSelectedResidents,
     getReportRows,
     buildGoogleDocText,
@@ -54,6 +55,7 @@ const {
     escapeHtml
 } = window.ResidentLogic;
 
+// DOM references
 const fields = {
     date: document.getElementById('dateInput'),
     topic: document.getElementById('topicInput')
@@ -71,7 +73,7 @@ const toast = document.getElementById('toast');
 
 const residentAttendanceButton = document.getElementById('residentAttendanceButton');
 const residentAttendanceCount = document.getElementById('residentAttendanceCount');
-const residentModal = document.getElementById('residentModal');
+const residentModalEl = document.getElementById('residentModal');
 const residentModalClose = document.getElementById('residentModalClose');
 const residentSearchInput = document.getElementById('residentSearchInput');
 const residentSearchClear = document.getElementById('residentSearchClear');
@@ -90,7 +92,7 @@ const presenterPickerValue = document.getElementById('presenterPickerValue');
 const seniorPickerValue = document.getElementById('seniorPickerValue');
 const moderatorPickerValue = document.getElementById('moderatorPickerValue');
 
-const pickerModal = document.getElementById('pickerModal');
+const pickerModalEl = document.getElementById('pickerModal');
 const pickerModalTitle = document.getElementById('pickerModalTitle');
 const pickerSearchInput = document.getElementById('pickerSearchInput');
 const pickerSearchClear = document.getElementById('pickerSearchClear');
@@ -102,151 +104,179 @@ const pickerDoneButton = document.getElementById('pickerDoneButton');
 
 const datePillButtons = Array.from(document.querySelectorAll('[data-date-offset]'));
 
-let activePicker = null;
+// Initialize State Store
+const store = createStateStore({
+    config: window.ResidentConfig,
+    storageUtils: window.ResidentStorageUtils,
+    dateUtils: window.ResidentDateUtils
+});
 
-const updateBodyScrollLock = () => {
-    const isAnyModalOpen =
-        (!residentModal.classList.contains('hidden') && !residentModal.classList.contains('is-closing')) ||
-        (!pickerModal.classList.contains('hidden') && !pickerModal.classList.contains('is-closing'));
-    document.body.classList.toggle('modal-open', isAnyModalOpen);
-};
-
-const closeModalWithAnimation = (modal, onComplete) => {
-    if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
-    modal.classList.add('is-closing');
-    setTimeout(() => {
-        modal.classList.remove('is-closing');
-        modal.classList.add('hidden');
-        updateBodyScrollLock();
-        if (typeof onComplete === 'function') {
-            onComplete();
-        }
-    }, 180);
-};
-
-const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-const getFocusableElements = (container) => Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
-    (el) => el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0
-);
-
-const trapFocusInModal = (modal, event) => {
-    if (event.key !== 'Tab') return;
-    const focusable = getFocusableElements(modal);
-    if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (event.shiftKey) {
-        if (document.activeElement === first || !modal.contains(document.activeElement)) {
-            event.preventDefault();
-            last.focus();
-        }
-    } else {
-        if (document.activeElement === last || !modal.contains(document.activeElement)) {
-            event.preventDefault();
-            first.focus();
-        }
-    }
-};
-
-const FLATPICKR_SCRIPT_SRC = './assets/vendor/flatpickr/flatpickr.min.js';
-let flatpickrLoadPromise = null;
-let flatpickrInstance = null;
-
-const enableFlatpickrThemeStyles = () => {
-    const themeLink = document.getElementById('flatpickr-theme');
-    if (!themeLink) return;
-    themeLink.dataset.enabled = 'true';
-    if (themeLink.dataset.pendingHref) {
-        themeLink.href = themeLink.dataset.pendingHref;
-    }
-};
-
-const upgradeDatePicker = () => {
-    if (flatpickrInstance || !window.flatpickr || !fields.date) return;
-    enableFlatpickrThemeStyles();
-    flatpickrInstance = flatpickr(fields.date, {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d-m-Y",
-        onChange: (selectedDates, dateStr) => {
-            setState({ date: dateStr });
-        }
-    });
-    if (state.date) {
-        flatpickrInstance.setDate(state.date, false);
-    }
-};
-
-const ensureFlatpickrLoaded = () => {
-    if (window.flatpickr) {
-        upgradeDatePicker();
-        return Promise.resolve();
-    }
-    if (flatpickrLoadPromise) return flatpickrLoadPromise;
-
-    enableFlatpickrThemeStyles();
-    flatpickrLoadPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = FLATPICKR_SCRIPT_SRC;
-        script.async = true;
-        script.onload = () => {
-            upgradeDatePicker();
-            resolve();
-        };
-        script.onerror = () => {
-            flatpickrLoadPromise = null;
-            reject(new Error('Failed to load flatpickr'));
-        };
-        document.head.appendChild(script);
-    });
-    return flatpickrLoadPromise;
-};
-
-if (window.matchMedia) {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    applySystemTheme(mediaQuery.matches);
-    const handleThemeChange = (event) => applySystemTheme(event.matches);
-    if (typeof mediaQuery.addEventListener === 'function') mediaQuery.addEventListener('change', handleThemeChange);
-    else if (typeof mediaQuery.addListener === 'function') mediaQuery.addListener(handleThemeChange);
-}
-
-const getInitialState = () => createInitialState(todayISO());
-
+// UI Feedback
 const showToast = createToast(toast);
 const triggerCopySuccess = createCopyFeedback(copyDocButton, copyDocIcon);
 
-const loadState = () => loadStateFromStorage(STORAGE_KEY, getInitialState);
-
-let state = loadState();
-let undoStack = [JSON.stringify(state)];
-let redoStack = [];
-let saveStateTimeout = null;
-const saveState = (immediate = false) => {
-    const performSave = () => {
-        safeStorage.set(STORAGE_KEY, JSON.stringify(state));
-        if (saveStateTimeout) {
-            clearTimeout(saveStateTimeout);
-            saveStateTimeout = null;
-        }
-    };
-
-    if (immediate) {
-        performSave();
-    } else {
-        if (saveStateTimeout) clearTimeout(saveStateTimeout);
-        saveStateTimeout = setTimeout(performSave, 250);
+const copyGDocData = async (trigger = 'button') => {
+    const currentState = store.getState();
+    try {
+        await copyText(buildGoogleDocText(currentState), buildGoogleDocHtml(currentState));
+        showToast('Copied G-Doc data');
+        triggerCopySuccess();
+        trackEvent('copy_gdoc_data', { trigger });
+    } catch (_) {
+        showToast('Copy failed');
     }
 };
 
+// Report Renderer
 const reportRenderer = createReportRenderer({ liveReport, getReportRows, escapeHtml });
-const renderReport = () => reportRenderer.render(state);
 
-const updatePickerButtons = () => {
+// Date Picker
+const datePicker = createDatePickerController({
+    dateInput: fields.date,
+    datePillButtons,
+    dateUtils: window.ResidentDateUtils,
+    onDateChange: (dateStr) => store.setState({ date: dateStr }),
+    getCurrentDate: () => store.getState().date
+});
+datePicker.init();
+
+// Modal Controllers
+const getTrackedModals = () => [residentModalEl, pickerModalEl];
+
+const pickerModal = createPickerModalController({
+    elements: {
+        modal: pickerModalEl,
+        title: pickerModalTitle,
+        searchInput: pickerSearchInput,
+        searchClear: pickerSearchClear,
+        emptySearch: pickerEmptySearch,
+        checklist: pickerChecklist,
+        closeButton: pickerModalClose,
+        clearButton: pickerClearButton,
+        doneButton: pickerDoneButton
+    },
+    modalManager: window.ResidentModalManager,
+    escapeHtml,
+    onSelect: (key, value) => store.setState({ [key]: value }),
+    onClear: (key) => store.setState({ [key]: '' }),
+    getTrackedModals
+});
+pickerModal.init();
+
+const residentModal = createResidentModalController({
+    elements: {
+        modal: residentModalEl,
+        triggerButton: residentAttendanceButton,
+        searchInput: residentSearchInput,
+        searchClear: residentSearchClear,
+        emptySearch: residentEmptySearch,
+        checklist: residentChecklist,
+        closeButton: residentModalClose,
+        clearButton: residentClearButton,
+        doneButton: residentDoneButton,
+        selectAllCheckbox: residentSelectAll
+    },
+    modalManager: window.ResidentModalManager,
+    residentLogic: window.ResidentLogic,
+    onSelectionChange: (selected) => store.setState({ residentsPresent: selected }),
+    getTrackedModals
+});
+residentModal.init(() => store.getState().residentsPresent);
+
+// Picker Button Triggers
+typePickerButton.addEventListener('click', () => {
+    pickerModal.open({
+        title: 'Select Type',
+        stateKey: 'type',
+        options: TYPE_OPTIONS,
+        returnButton: typePickerButton
+    }, store.getState().type);
+});
+
+presenterPickerButton.addEventListener('click', () => {
+    pickerModal.open({
+        title: 'Select Presenter',
+        stateKey: 'presenter',
+        options: PRESENTER_OPTIONS,
+        groups: RESIDENT_GROUPS,
+        returnButton: presenterPickerButton
+    }, store.getState().presenter);
+});
+
+seniorPickerButton.addEventListener('click', () => {
+    pickerModal.open({
+        title: 'Select Senior Resident',
+        stateKey: 'seniorResident',
+        options: SENIOR_OPTIONS,
+        returnButton: seniorPickerButton
+    }, store.getState().seniorResident);
+});
+
+moderatorPickerButton.addEventListener('click', () => {
+    pickerModal.open({
+        title: 'Select Moderator',
+        stateKey: 'moderator',
+        options: MODERATOR_OPTIONS,
+        returnButton: moderatorPickerButton
+    }, store.getState().moderator);
+});
+
+// Form Inputs
+fields.topic.addEventListener('input', () => store.setState({ topic: fields.topic.value }));
+fields.topic.addEventListener('change', () => store.setState({ topic: fields.topic.value }));
+
+fields.date.addEventListener('input', () => store.setState({ date: fields.date.value }));
+fields.date.addEventListener('change', () => store.setState({ date: fields.date.value }));
+
+// Action Buttons
+copyDocButton.addEventListener('click', () => copyGDocData('button'));
+
+clearButton.addEventListener('click', () => {
+    store.reset();
+    showToast('Form cleared');
+});
+
+undoButton?.addEventListener('click', () => store.undo());
+redoButton?.addEventListener('click', () => store.redo());
+
+mobileCopyButton?.addEventListener('click', async () => {
+    try {
+        await copyText('+919468937372');
+        showToast('Copied Mobile Number');
+    } catch (_) {}
+});
+
+upiCopyButton?.addEventListener('click', async () => {
+    try {
+        await copyText('vaibhav.ganesh51@okaxis');
+        showToast('Copied UPI ID');
+    } catch (_) {}
+});
+
+// Keyboard Shortcuts
+initKeyboardShortcuts({
+    onEscape: () => {
+        if (pickerModal.handleEscape()) return true;
+        if (residentModal.handleEscape()) return true;
+        return false;
+    },
+    onTopicJump: () => {
+        fields.topic.focus();
+        fields.topic.select();
+    },
+    onCopyDoc: () => copyGDocData('shortcut'),
+    onClear: () => clearButton.click(),
+    onUndo: () => undoButton?.click(),
+    onRedo: () => redoButton?.click()
+});
+
+// Synchronize UI with State
+const syncUI = (state, { canUndo, canRedo }) => {
+    if (fields.topic.value !== (state.topic || '')) {
+        fields.topic.value = state.topic || '';
+    }
+    datePicker.setDate(state.date);
+
     typePickerValue.textContent = state.type || '';
     typePickerButton.classList.toggle('empty-picker', !state.type);
 
@@ -270,569 +300,23 @@ const updatePickerButtons = () => {
 
     const selectedCount = getSelectedResidents(state).length;
     residentAttendanceCount.textContent = String(selectedCount);
-    residentAttendanceButton.querySelector('span').textContent = selectedCount
-        ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
-        : '';
+    const attendanceLabel = residentAttendanceButton.querySelector('span');
+    if (attendanceLabel) {
+        attendanceLabel.textContent = selectedCount
+            ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
+            : '';
+    }
     residentAttendanceButton.classList.toggle('empty-picker', selectedCount === 0);
 
-    datePillButtons.forEach((button) => {
-        const date = new Date();
-        date.setDate(date.getDate() + Number(button.dataset.dateOffset || 0));
-        button.classList.toggle('active', state.date === toLocalISODate(date));
-    });
+    if (residentModal.isOpen()) {
+        residentModal.syncCheckboxes(state.residentsPresent);
+    }
+
+    reportRenderer.render(state);
+
+    if (undoButton) undoButton.disabled = !canUndo;
+    if (redoButton) redoButton.disabled = !canRedo;
 };
 
-const copyText = copyTextWithFallback;
-
-const copyGDocData = async (trigger = 'button') => {
-    try {
-        await copyText(buildGoogleDocText(state), buildGoogleDocHtml(state));
-        showToast('Copied G-Doc data');
-        
-        triggerCopySuccess();
-
-        trackEvent('copy_gdoc_data', { trigger });
-    } catch (_) {
-        showToast('Copy failed');
-    }
-};
-
-const syncInputs = () => {
-    Object.entries(fields).forEach(([key, input]) => {
-        input.value = state[key] || '';
-    });
-    if (flatpickrInstance) {
-        flatpickrInstance.setDate(state.date, false);
-    }
-};
-
-const updateUndoRedoButtons = () => {
-    if (undoButton) undoButton.disabled = undoStack.length <= 1;
-    if (redoButton) redoButton.disabled = redoStack.length === 0;
-};
-
-const loadStateWithoutRecording = (nextState, persist = true) => {
-    state = nextState;
-    if (persist) saveState(true);
-    syncInputs();
-    updatePickerButtons();
-    renderReport();
-    updateUndoRedoButtons();
-};
-
-const setState = (patch) => {
-    let nextState = { ...state, ...patch };
-    if (nextState.type === 'Practical') {
-        nextState.presenter = '';
-    }
-
-    // Sync Presenter Attendance
-    const oldPresenter = state.presenter;
-    const newPresenter = nextState.presenter;
-    if (oldPresenter !== newPresenter) {
-        let residentsPresent = Array.isArray(nextState.residentsPresent) ? [...nextState.residentsPresent] : [];
-        if (oldPresenter) {
-            residentsPresent = residentsPresent.filter(name => name !== oldPresenter);
-        }
-        if (newPresenter && !residentsPresent.includes(newPresenter)) {
-            residentsPresent.push(newPresenter);
-        }
-        nextState.residentsPresent = residentsPresent;
-    }
-
-    if (JSON.stringify(nextState) === JSON.stringify(state)) return;
-    state = nextState;
-    undoStack.push(JSON.stringify(state));
-    if (undoStack.length > MAX_UNDO_HISTORY) undoStack.shift();
-    redoStack = [];
-    saveState();
-    updatePickerButtons();
-    renderReport();
-    updateUndoRedoButtons();
-};
-
-let residentChecklistRendered = false;
-
-const renderResidentChecklistStructure = () => {
-    if (residentChecklistRendered && residentChecklist.children.length > 0) return;
-    residentChecklist.innerHTML = RESIDENT_GROUPS.map((group, groupIndex) => `
-        <section class="resident-group" data-group-index="${groupIndex}">
-            <div class="resident-group-header">
-                <h3 class="resident-group-title">${escapeHtml(group.level)}</h3>
-                <label class="group-select-all" aria-label="Select all ${escapeHtml(group.level)}">
-                    <input type="checkbox" class="group-checkbox" data-group-index="${groupIndex}">
-                    <span>All</span>
-                </label>
-            </div>
-            <div class="resident-group-list">
-                ${group.names.map((name) => `
-                    <label class="resident-option">
-                        <input type="checkbox" class="resident-checkbox" value="${escapeHtml(name)}">
-                        <span>${escapeHtml(name)}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </section>
-    `).join('');
-    residentChecklistRendered = true;
-};
-
-const filterResidentChecklist = (query) => {
-    const cleanQuery = query.trim().toLowerCase();
-    const groups = residentChecklist.querySelectorAll('.resident-group');
-    let totalVisible = 0;
-
-    groups.forEach((group) => {
-        const options = group.querySelectorAll('.resident-option');
-        let groupVisible = 0;
-
-        options.forEach((option) => {
-            const name = option.querySelector('span')?.textContent.toLowerCase() || '';
-            const matches = !cleanQuery || name.includes(cleanQuery);
-            option.classList.toggle('hidden', !matches);
-            if (matches) {
-                groupVisible++;
-                totalVisible++;
-            }
-        });
-
-        group.classList.toggle('hidden', groupVisible === 0);
-    });
-
-    residentEmptySearch.classList.toggle('hidden', totalVisible > 0);
-    residentSearchClear.classList.toggle('hidden', cleanQuery.length === 0);
-};
-
-const filterPickerChecklist = (query) => {
-    const cleanQuery = query.trim().toLowerCase();
-    const groups = pickerChecklist.querySelectorAll('.resident-group');
-    let totalVisible = 0;
-
-    if (groups.length > 0) {
-        groups.forEach((group) => {
-            const options = group.querySelectorAll('.picker-option');
-            let groupVisible = 0;
-
-            options.forEach((option) => {
-                const name = option.querySelector('.picker-option-label')?.textContent.toLowerCase() || '';
-                const matches = !cleanQuery || name.includes(cleanQuery);
-                option.classList.toggle('hidden', !matches);
-                if (matches) {
-                    groupVisible++;
-                    totalVisible++;
-                }
-            });
-
-            group.classList.toggle('hidden', groupVisible === 0);
-        });
-    } else {
-        const options = pickerChecklist.querySelectorAll('.picker-option');
-        options.forEach((option) => {
-            const name = option.querySelector('.picker-option-label')?.textContent.toLowerCase() || '';
-            const matches = !cleanQuery || name.includes(cleanQuery);
-            option.classList.toggle('hidden', !matches);
-            if (matches) totalVisible++;
-        });
-    }
-
-    pickerEmptySearch.classList.toggle('hidden', totalVisible > 0);
-    pickerSearchClear.classList.toggle('hidden', cleanQuery.length === 0);
-};
-
-const syncResidentChecklistCheckboxes = () => {
-    renderResidentChecklistStructure();
-    const selectedSet = new Set(getSelectedResidents(state));
-    const residentCheckboxes = residentChecklist.querySelectorAll('.resident-checkbox');
-    residentCheckboxes.forEach((checkbox) => {
-        const isChecked = selectedSet.has(checkbox.value);
-        checkbox.checked = isChecked;
-        const parentOption = checkbox.closest('.resident-option');
-        if (parentOption) {
-            parentOption.classList.toggle('is-selected', isChecked);
-        }
-    });
-
-    const groupCheckboxes = residentChecklist.querySelectorAll('.group-checkbox');
-    groupCheckboxes.forEach((groupCheckbox) => {
-        const groupIndex = Number(groupCheckbox.dataset.groupIndex);
-        const group = RESIDENT_GROUPS[groupIndex];
-        if (group) {
-            groupCheckbox.checked = group.names.length > 0 && group.names.every((name) => selectedSet.has(name));
-        }
-    });
-
-    residentSelectAll.checked = ALL_RESIDENTS.length > 0 && selectedSet.size === ALL_RESIDENTS.length;
-};
-
-const openResidentModal = () => {
-    residentSearchInput.value = '';
-    residentSearchClear.classList.add('hidden');
-    residentEmptySearch.classList.add('hidden');
-    filterResidentChecklist('');
-    syncResidentChecklistCheckboxes();
-    residentModal.classList.remove('hidden');
-    residentModal.classList.remove('is-closing');
-    updateBodyScrollLock();
-    residentAttendanceButton.setAttribute('aria-expanded', 'true');
-    residentSearchInput.focus();
-};
-
-const closeResidentModal = () => {
-    closeModalWithAnimation(residentModal, () => {
-        residentAttendanceButton.setAttribute('aria-expanded', 'false');
-        residentAttendanceButton.focus();
-    });
-};
-
-const openPickerModal = (config) => {
-    activePicker = config;
-    pickerModalTitle.textContent = config.title;
-    pickerSearchInput.value = '';
-    const placeholderNoun = config.title.replace(/^Select\s+/i, '');
-    pickerSearchInput.placeholder = `Search ${placeholderNoun}...`;
-    pickerSearchClear.classList.add('hidden');
-    pickerEmptySearch.classList.add('hidden');
-    const selectedValue = String(state[config.stateKey] || '');
-    pickerChecklist.classList.toggle('grouped-checklist', Boolean(config.groups));
-    pickerChecklist.innerHTML = config.groups
-        ? config.groups.map((group) => `
-            <section class="resident-group">
-                <div class="resident-group-header">
-                    <h3 class="resident-group-title">${escapeHtml(group.level)}</h3>
-                </div>
-                <div class="resident-group-list">
-                    ${group.names.map((name) => `
-                        <label class="picker-option ${selectedValue === name ? 'is-selected' : ''}">
-                            <span class="picker-option-label">${escapeHtml(name)}</span>
-                            <input type="radio" name="pickerChoice" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
-                        </label>
-                    `).join('')}
-                </div>
-            </section>
-        `).join('')
-        : config.options.map((name) => `
-            <label class="picker-option ${selectedValue === name ? 'is-selected' : ''}">
-                <span class="picker-option-label">${escapeHtml(name)}</span>
-                <input type="radio" name="pickerChoice" value="${escapeHtml(name)}" ${selectedValue === name ? 'checked' : ''}>
-            </label>
-        `).join('');
-    pickerModal.classList.remove('hidden');
-    pickerModal.classList.remove('is-closing');
-    updateBodyScrollLock();
-    if (config.returnButton) {
-        config.returnButton.setAttribute('aria-expanded', 'true');
-    }
-    pickerSearchInput.focus();
-};
-
-const closePickerModal = () => {
-    const currentReturnButton = activePicker?.returnButton;
-    closeModalWithAnimation(pickerModal, () => {
-        if (currentReturnButton) {
-            currentReturnButton.setAttribute('aria-expanded', 'false');
-            currentReturnButton.focus();
-        }
-    });
-    activePicker = null;
-};
-
-Object.entries(fields).forEach(([key, input]) => {
-    input.addEventListener('input', () => setState({ [key]: input.value }));
-    input.addEventListener('change', () => setState({ [key]: input.value }));
-});
-
-fields.date.addEventListener('click', () => {
-    if (flatpickrInstance) {
-        flatpickrInstance.open();
-    } else {
-        ensureFlatpickrLoaded()
-            .then(() => {
-                if (flatpickrInstance) flatpickrInstance.open();
-            })
-            .catch(() => {
-                try {
-                    fields.date.showPicker();
-                } catch (error) {
-                    console.warn('showPicker is not supported or failed:', error);
-                }
-            });
-    }
-});
-
-datePillButtons.forEach((button, index) => {
-    button.addEventListener('click', () => {
-        const date = new Date();
-        date.setDate(date.getDate() + Number(button.dataset.dateOffset || 0));
-        const nextDate = toLocalISODate(date);
-        fields.date.value = nextDate;
-        if (flatpickrInstance) {
-            flatpickrInstance.setDate(nextDate, false);
-        }
-        setState({ date: nextDate });
-    });
-
-    button.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-            event.preventDefault();
-            const direction = event.key === 'ArrowRight' ? 1 : -1;
-            const nextIndex = (index + direction + datePillButtons.length) % datePillButtons.length;
-            datePillButtons[nextIndex].focus();
-            datePillButtons[nextIndex].click();
-        }
-    });
-});
-
-residentAttendanceButton.addEventListener('click', openResidentModal);
-residentDoneButton.addEventListener('click', closeResidentModal);
-residentClearButton.addEventListener('click', () => {
-    setState({ residentsPresent: [] });
-    syncResidentChecklistCheckboxes();
-});
-
-residentChecklist.addEventListener('change', (e) => {
-    if (e.target.classList.contains('group-checkbox')) {
-        const groupIndex = e.target.dataset.groupIndex;
-        const group = RESIDENT_GROUPS[groupIndex];
-        const isChecked = e.target.checked;
-        
-        let selectedSet = new Set(getSelectedResidents(state));
-        group.names.forEach(name => {
-            if (isChecked) selectedSet.add(name);
-            else selectedSet.delete(name);
-        });
-        
-        setState({ residentsPresent: Array.from(selectedSet) });
-        syncResidentChecklistCheckboxes();
-        return;
-    }
-
-    const selected = Array.from(residentChecklist.querySelectorAll('.resident-checkbox:checked')).map((input) => input.value);
-    setState({ residentsPresent: selected });
-    syncResidentChecklistCheckboxes();
-});
-
-residentSelectAll.addEventListener('change', () => {
-    const next = residentSelectAll.checked ? [...ALL_RESIDENTS] : [];
-    setState({ residentsPresent: next });
-    syncResidentChecklistCheckboxes();
-});
-
-residentModalClose?.addEventListener('click', closeResidentModal);
-
-residentSearchInput?.addEventListener('input', (event) => {
-    filterResidentChecklist(event.target.value);
-});
-
-residentSearchClear?.addEventListener('click', () => {
-    residentSearchInput.value = '';
-    filterResidentChecklist('');
-    residentSearchInput.focus();
-});
-
-residentModal.addEventListener('click', (event) => {
-    if (event.target === residentModal) closeResidentModal();
-});
-
-residentModal.addEventListener('keydown', (event) => {
-    if (!residentModal.classList.contains('hidden')) {
-        trapFocusInModal(residentModal, event);
-    }
-});
-
-typePickerButton.addEventListener('click', () => {
-    openPickerModal({
-        title: 'Select Type',
-        stateKey: 'type',
-        options: TYPE_OPTIONS,
-        returnButton: typePickerButton
-    });
-});
-
-presenterPickerButton.addEventListener('click', () => {
-    openPickerModal({
-        title: 'Select Presenter',
-        stateKey: 'presenter',
-        options: PRESENTER_OPTIONS,
-        groups: RESIDENT_GROUPS,
-        returnButton: presenterPickerButton
-    });
-});
-
-seniorPickerButton.addEventListener('click', () => {
-    openPickerModal({
-        title: 'Select Senior Resident',
-        stateKey: 'seniorResident',
-        options: SENIOR_OPTIONS,
-        returnButton: seniorPickerButton
-    });
-});
-
-moderatorPickerButton.addEventListener('click', () => {
-    openPickerModal({
-        title: 'Select Moderator',
-        stateKey: 'moderator',
-        options: MODERATOR_OPTIONS,
-        returnButton: moderatorPickerButton
-    });
-});
-
-pickerChecklist.addEventListener('change', (event) => {
-    if (!activePicker) return;
-    const target = event.target;
-    if (!target || target.type !== 'radio') return;
-    pickerChecklist.querySelectorAll('.picker-option').forEach((opt) => {
-        const input = opt.querySelector('input[type="radio"]');
-        opt.classList.toggle('is-selected', input && input.checked);
-    });
-    setState({ [activePicker.stateKey]: target.value });
-    // Auto-close single-select picker after a brief moment so the selection is visible
-    setTimeout(closePickerModal, 140);
-});
-
-pickerSearchInput?.addEventListener('input', (event) => {
-    filterPickerChecklist(event.target.value);
-});
-
-pickerSearchClear?.addEventListener('click', () => {
-    pickerSearchInput.value = '';
-    filterPickerChecklist('');
-    pickerSearchInput.focus();
-});
-
-pickerModalClose.addEventListener('click', closePickerModal);
-pickerDoneButton.addEventListener('click', closePickerModal);
-pickerClearButton.addEventListener('click', () => {
-    if (!activePicker) return;
-    setState({ [activePicker.stateKey]: '' });
-    pickerChecklist.querySelectorAll('input[type="radio"]').forEach((input) => {
-        input.checked = false;
-    });
-    pickerChecklist.querySelectorAll('.picker-option').forEach((opt) => {
-        opt.classList.remove('is-selected');
-    });
-});
-
-pickerModal.addEventListener('click', (event) => {
-    if (event.target === pickerModal) closePickerModal();
-});
-
-pickerModal.addEventListener('keydown', (event) => {
-    if (!pickerModal.classList.contains('hidden')) {
-        trapFocusInModal(pickerModal, event);
-    }
-});
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        if (!pickerModal.classList.contains('hidden')) {
-            if (document.activeElement === pickerSearchInput && pickerSearchInput.value) {
-                pickerSearchInput.value = '';
-                filterPickerChecklist('');
-                return;
-            }
-            closePickerModal();
-            return;
-        }
-        if (!residentModal.classList.contains('hidden')) {
-            if (document.activeElement === residentSearchInput && residentSearchInput.value) {
-                residentSearchInput.value = '';
-                filterResidentChecklist('');
-                return;
-            }
-            closeResidentModal();
-            return;
-        }
-    }
-
-    // Alt+T — jump to Topic input
-    if (event.altKey && (event.key === 't' || event.key === 'T')) {
-        event.preventDefault();
-        fields.topic.focus();
-        fields.topic.select();
-        return;
-    }
-
-    const isDocShortcut = event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey &&
-        (event.code === 'KeyD' || event.key === 'd' || event.key === 'D' || event.code === 'KeyC' || event.key === 'c' || event.key === 'C');
-
-    if (isDocShortcut) {
-        event.preventDefault();
-        copyGDocData('shortcut');
-        return;
-    }
-
-    if (event.ctrlKey && event.key === 'Backspace') {
-        event.preventDefault();
-        clearButton.click();
-    }
-
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
-        event.preventDefault();
-        undoButton?.click();
-        return;
-    }
-
-    if (
-        ((event.ctrlKey || event.metaKey) && (event.key === 'y' || event.key === 'Y')) ||
-        ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'z' || event.key === 'Z'))
-    ) {
-        event.preventDefault();
-        redoButton?.click();
-    }
-});
-
-copyDocButton.addEventListener('click', () => copyGDocData('button'));
-
-clearButton.addEventListener('click', () => {
-    state = getInitialState();
-    undoStack = [JSON.stringify(state)];
-    redoStack = [];
-    saveState(true);
-    syncInputs();
-    updatePickerButtons();
-    renderReport();
-    updateUndoRedoButtons();
-    showToast('Form cleared');
-});
-
-undoButton?.addEventListener('click', () => {
-    if (undoStack.length <= 1) return;
-    redoStack.push(undoStack.pop());
-    const previousState = JSON.parse(undoStack[undoStack.length - 1]);
-    loadStateWithoutRecording(previousState);
-});
-
-redoButton?.addEventListener('click', () => {
-    if (redoStack.length === 0) return;
-    const nextState = JSON.parse(redoStack.pop());
-    undoStack.push(JSON.stringify(nextState));
-    loadStateWithoutRecording(nextState);
-});
-
-mobileCopyButton?.addEventListener('click', async () => {
-    try {
-        await copyText('+919468937372');
-        showToast('Copied Mobile Number');
-    } catch (_) {}
-});
-
-upiCopyButton?.addEventListener('click', async () => {
-    try {
-        await copyText('vaibhav.ganesh51@okaxis');
-        showToast('Copied UPI ID');
-    } catch (_) {}
-});
-
-syncInputs();
-updatePickerButtons();
-renderReport();
-updateUndoRedoButtons();
-
-// Defer Flatpickr loading until window load and browser idle
-window.addEventListener('load', () => {
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => ensureFlatpickrLoaded().catch(() => {}));
-    } else {
-        setTimeout(() => ensureFlatpickrLoaded().catch(() => {}), 1000);
-    }
-});
+// Initial store subscription triggers initial render
+store.subscribe(syncUI, true);

@@ -13,9 +13,15 @@ attached to `window`, allowing it to run without a bundler or development server
 4. `lib/app-config.js` -> `window.ResidentConfig`
 5. `lib/ui-utils.js` -> `window.ResidentUIUtils`
 6. `lib/report-ui.js` -> `window.ResidentReportUI`
-7. `app.js` -> DOM wiring and application orchestration
+7. `lib/modal-manager.js` -> `window.ResidentModalManager`
+8. `lib/state-manager.js` -> `window.ResidentStateManager`
+9. `lib/date-picker.js` -> `window.ResidentDatePicker`
+10. `lib/picker-modal.js` -> `window.ResidentPickerModal`
+11. `lib/resident-modal.js` -> `window.ResidentModal`
+12. `lib/keyboard-shortcuts.js` -> `window.ResidentShortcuts`
+13. `app.js` -> Bootstrap orchestration and UI event binding
 
-Do not reorder these scripts unless `app.js` dependencies are updated at the same time.
+Do not reorder these scripts unless dependency references are updated at the same time.
 
 ## Module Responsibilities
 
@@ -27,11 +33,17 @@ Do not reorder these scripts unless `app.js` dependencies are updated at the sam
 | `lib/app-config.js` | Storage contract, defaults, undo limit | DOM updates or persistence |
 | `lib/ui-utils.js` | Toasts, clipboard fallback, copy-success feedback | Resident selection rules |
 | `lib/report-ui.js` | Live-report DOM creation and updates | State mutation or report content rules |
-| `app.js` | State orchestration, rendering, modals, pickers, event binding | Reusable low-level utilities |
+| `lib/modal-manager.js` | Dialog focus trapping, animation transitions, scroll lock | Business rules or state storage |
+| `lib/state-manager.js` | Store subscription, undo/redo history, debounce saving, invariants | Direct DOM manipulation |
+| `lib/date-picker.js` | Lazy Flatpickr loading, theme stylesheet sync, pill navigation | Attendance or report generation |
+| `lib/picker-modal.js` | Single-select option modal rendering, filtering, and selection | Resident group attendance state |
+| `lib/resident-modal.js` | Resident checklist DOM rendering, group selection, search | Single-choice picker options |
+| `lib/keyboard-shortcuts.js` | Global shortcut routing (Alt+T, Ctrl+Alt+D, Esc, undo/redo) | Business logic execution |
+| `app.js` | Top-level wiring between DOM elements, store, and controllers | Reusable low-level utilities |
 
 ## State Shape
 
-The persisted state uses the `residentProData` key and includes:
+The persisted state uses the `residentProData-v2` key and includes:
 
 - `date`, `topic`, `type`
 - `presenter`, `seniorResident`, `moderator`
@@ -53,13 +65,11 @@ The persisted state uses the `residentProData` key and includes:
 - Live-report card rendering: `lib/report-ui.js`
 - Initial state, storage key, or undo limit: `lib/app-config.js`
 - Date formatting: `lib/date-utils.js`
-- Modal behavior, rendering, or event wiring: `app.js`
+- Dialog accessibility and animations: `lib/modal-manager.js`
+- State mutations, undo/redo, persistence rules: `lib/state-manager.js`
+- Date picker or quick pills: `lib/date-picker.js`
+- Option modals (Type, Presenter, etc.): `lib/picker-modal.js`
+- Attendance checklist modal: `lib/resident-modal.js`
+- Shortcuts and key bindings: `lib/keyboard-shortcuts.js`
+- Top-level bootstrapping: `app.js`
 - Visual styling: `styles.css`
-
-## Safe Extraction Process
-
-1. Extract one complete responsibility from `app.js`.
-2. Expose a small API from a new `lib/*.js` module.
-3. Load the module before `app.js`.
-4. Replace the old implementation in `app.js`.
-5. Verify picker, report, persistence, and undo/redo behavior before continuing.
