@@ -447,7 +447,9 @@ svg {
                 box-shadow 0.15s ease,
                 background-color 0.15s ease,
                 border-color 0.15s ease,
-                color 0.15s ease;
+                color 0.15s ease,
+                opacity 0.22s ease,
+                filter 0.22s ease;
     will-change: transform;
 }
 
@@ -802,21 +804,30 @@ select.form-input-m3 {
     opacity: 0;
     position: fixed;
     left: 50%;
-    transform: translateX(-50%);
-    bottom: 30px;
+    bottom: 50px;
+    transform: translate3d(-50%, 16px, 0) scale(0.95);
     background-color: #322F35;
     color: #F5EFF7;
     padding: 0.75rem 1.5rem;
     border-radius: 99px;
     z-index: 100;
-    transition: all 0.3s;
     font-size: 0.875rem;
+    pointer-events: none;
+    will-change: transform, opacity;
+    transition:
+        opacity 0.22s ease,
+        transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 0s linear 0.26s;
 }
 
 #toast.show {
     visibility: visible;
     opacity: 1;
-    bottom: 50px;
+    transform: translate3d(-50%, 0, 0) scale(1);
+    transition:
+        opacity 0.2s ease,
+        transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 0s linear 0s;
 }
 
 #toast.error {
@@ -961,12 +972,49 @@ select.form-input-m3 {
     font-size: 0.82rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        opacity 0.16s ease,
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        visibility 0s linear 0s;
+}
+
+.modal-search-clear.hidden {
+    display: grid !important;
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none;
+    visibility: hidden;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        opacity 0.14s ease,
+        transform 0.14s ease,
+        visibility 0s linear 0.14s;
 }
 
 .modal-search-clear:hover {
     background: rgba(132, 151, 184, 0.25);
     color: var(--text);
+}
+
+.modal-search-clear:active {
+    transform: scale(0.88);
+}
+
+@keyframes emptyStateFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .modal-empty-search {
@@ -975,6 +1023,7 @@ select.form-input-m3 {
     color: var(--muted);
     font-size: 0.92rem;
     font-weight: 600;
+    animation: emptyStateFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-footer {
@@ -1024,6 +1073,17 @@ select.form-input-m3 {
     gap: 1rem;
 }
 
+@keyframes modalGroupCascade {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .resident-group {
     border: 1px solid var(--border);
     border-radius: 1.1rem;
@@ -1032,6 +1092,25 @@ select.form-input-m3 {
     box-shadow: 0 4px 12px rgba(7, 13, 25, 0.02);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.modal-backdrop:not(.is-closing) .resident-group {
+    animation: modalGroupCascade 0.26s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.modal-backdrop:not(.is-closing) .resident-group:nth-child(1) { animation-delay: 25ms; }
+.modal-backdrop:not(.is-closing) .resident-group:nth-child(2) { animation-delay: 55ms; }
+.modal-backdrop:not(.is-closing) .resident-group:nth-child(3) { animation-delay: 85ms; }
+
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option {
+    animation: modalGroupCascade 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(1) { animation-delay: 15ms; }
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(2) { animation-delay: 30ms; }
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(3) { animation-delay: 45ms; }
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(4) { animation-delay: 60ms; }
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(5) { animation-delay: 75ms; }
+.modal-backdrop:not(.is-closing) .picker-checklist:not(.grouped-checklist) > .picker-option:nth-child(6) { animation-delay: 90ms; }
 
 .resident-group:hover {
     box-shadow: 0 8px 18px rgba(7, 13, 25, 0.04);
@@ -1091,7 +1170,8 @@ select.form-input-m3 {
     font-size: 0.9rem;
     font-weight: 650;
     cursor: pointer;
-    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease;
+    will-change: transform;
 }
 
 .resident-group > .resident-option + .resident-option {
@@ -1110,6 +1190,10 @@ select.form-input-m3 {
     border-color: var(--border-strong);
     transform: translateY(-1px);
     box-shadow: 0 2px 6px rgba(7, 13, 25, 0.04);
+}
+
+.resident-option:active {
+    transform: scale(0.98) !important;
 }
 
 .resident-option:has(input:checked),
@@ -1142,7 +1226,8 @@ select.form-input-m3 {
     font-weight: 650;
     cursor: pointer;
     user-select: none;
-    transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease;
+    will-change: transform;
 }
 
 .resident-group > .picker-option + .picker-option {
@@ -1154,6 +1239,10 @@ select.form-input-m3 {
     border-color: var(--border-strong);
     transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(7, 13, 25, 0.04);
+}
+
+.picker-option:active {
+    transform: scale(0.98) !important;
 }
 
 .picker-option input[type="radio"] {
@@ -1255,8 +1344,26 @@ select.form-input-m3 {
 .attendance-button:disabled,
 .attendance-button.disabled-picker {
     opacity: 0.45;
+    filter: grayscale(0.25);
     cursor: not-allowed;
     pointer-events: none !important;
+}
+
+/* Picker selected value fade-in */
+@keyframes pickerValueFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.value-fade-in {
+    display: inline-block;
+    animation: pickerValueFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Entrance animation */

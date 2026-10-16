@@ -270,6 +270,18 @@ initKeyboardShortcuts({
     onRedo: () => redoButton?.click()
 });
 
+let isInitialSync = true;
+
+const setPickerLabel = (el, nextText) => {
+    if (!el || el.textContent === nextText) return;
+    el.textContent = nextText;
+    if (!isInitialSync && nextText) {
+        el.classList.remove('value-fade-in');
+        void el.offsetWidth;
+        el.classList.add('value-fade-in');
+    }
+};
+
 // Synchronize UI with State
 const syncUI = (state, { canUndo, canRedo }) => {
     if (fields.topic.value !== (state.topic || '')) {
@@ -277,39 +289,42 @@ const syncUI = (state, { canUndo, canRedo }) => {
     }
     datePicker.setDate(state.date);
 
-    typePickerValue.textContent = state.type || '';
+    setPickerLabel(typePickerValue, state.type || '');
     typePickerButton.classList.toggle('empty-picker', !state.type);
 
     const isPractical = state.type === 'Practical';
     presenterPickerButton.disabled = isPractical;
     if (isPractical) {
-        presenterPickerValue.textContent = '';
+        setPickerLabel(presenterPickerValue, '');
         presenterPickerButton.classList.remove('empty-picker');
         presenterPickerButton.classList.add('disabled-picker');
     } else {
-        presenterPickerValue.textContent = state.presenter || '';
+        setPickerLabel(presenterPickerValue, state.presenter || '');
         presenterPickerButton.classList.remove('disabled-picker');
         presenterPickerButton.classList.toggle('empty-picker', !state.presenter);
     }
 
-    seniorPickerValue.textContent = state.seniorResident || '';
+    setPickerLabel(seniorPickerValue, state.seniorResident || '');
     seniorPickerButton.classList.toggle('empty-picker', !state.seniorResident);
 
-    moderatorPickerValue.textContent = state.moderator || '';
+    setPickerLabel(moderatorPickerValue, state.moderator || '');
     moderatorPickerButton.classList.toggle('empty-picker', !state.moderator);
 
     const selectedCount = getSelectedResidents(state).length;
     if (residentAttendanceCount.textContent !== String(selectedCount)) {
         residentAttendanceCount.textContent = String(selectedCount);
-        residentAttendanceCount.classList.remove('count-pop');
-        void residentAttendanceCount.offsetWidth;
-        residentAttendanceCount.classList.add('count-pop');
+        if (!isInitialSync) {
+            residentAttendanceCount.classList.remove('count-pop');
+            void residentAttendanceCount.offsetWidth;
+            residentAttendanceCount.classList.add('count-pop');
+        }
     }
     const attendanceLabel = residentAttendanceButton.querySelector('span');
     if (attendanceLabel) {
-        attendanceLabel.textContent = selectedCount
+        const nextAttendanceText = selectedCount
             ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
             : '';
+        setPickerLabel(attendanceLabel, nextAttendanceText);
     }
     residentAttendanceButton.classList.toggle('empty-picker', selectedCount === 0);
 
@@ -321,6 +336,7 @@ const syncUI = (state, { canUndo, canRedo }) => {
 
     if (undoButton) undoButton.disabled = !canUndo;
     if (redoButton) redoButton.disabled = !canRedo;
+    isInitialSync = false;
 };
 
 // Initial store subscription triggers initial render
