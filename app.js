@@ -221,7 +221,83 @@ moderatorPickerButton.addEventListener('click', () => {
     }, store.getState().moderator);
 });
 
-// Form Inputs
+// Form Inputs & Field-to-Field Flow
+const sessionForm = document.getElementById('sessionForm');
+const orderedFormControls = [
+    fields.date,
+    fields.topic,
+    typePickerButton,
+    presenterPickerButton,
+    seniorPickerButton,
+    moderatorPickerButton,
+    residentAttendanceButton
+].filter(Boolean);
+
+const controlToCardSlug = new Map([
+    [fields.date, 'date'],
+    [fields.topic, 'topic'],
+    [typePickerButton, 'type'],
+    [presenterPickerButton, 'presenter'],
+    [seniorPickerButton, 'senior-resident'],
+    [moderatorPickerButton, 'moderator'],
+    [residentAttendanceButton, 'resident-present']
+]);
+
+const resolveActiveCardSlug = () => {
+    const expandedTrigger = orderedFormControls.find((el) => el.getAttribute('aria-expanded') === 'true');
+    if (expandedTrigger) return controlToCardSlug.get(expandedTrigger) || '';
+    const activeEl = document.activeElement;
+    if (!activeEl) return '';
+    if (controlToCardSlug.has(activeEl)) return controlToCardSlug.get(activeEl) || '';
+    if (activeEl.closest('.date-field')) return 'date';
+    return '';
+};
+
+const syncActiveReportCard = () => {
+    if (typeof reportRenderer.setActiveCard === 'function') {
+        reportRenderer.setActiveCard(resolveActiveCardSlug());
+    }
+};
+
+sessionForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+});
+
+sessionForm?.addEventListener('focusin', () => {
+    requestAnimationFrame(syncActiveReportCard);
+});
+
+sessionForm?.addEventListener('focusout', () => {
+    requestAnimationFrame(syncActiveReportCard);
+});
+
+sessionForm?.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    const target = event.target;
+    if (!target) return;
+
+    const enabledControls = orderedFormControls.filter((el) => !el.disabled && el.offsetParent !== null);
+    const currentIndex = enabledControls.indexOf(target);
+    if (currentIndex === -1) return;
+
+    if (event.key === 'Enter' && target.tagName === 'INPUT' && target.id !== 'dateInput') {
+        event.preventDefault();
+        const nextControl = enabledControls[currentIndex + 1];
+        if (nextControl) nextControl.focus();
+        return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const nextControl = enabledControls[currentIndex + delta];
+        if (nextControl) {
+            nextControl.focus();
+            if (nextControl === fields.topic) fields.topic.select();
+        }
+    }
+});
+
 fields.topic.addEventListener('input', () => store.setState({ topic: fields.topic.value }));
 fields.topic.addEventListener('change', () => store.setState({ topic: fields.topic.value }));
 

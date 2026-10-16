@@ -364,12 +364,20 @@ svg {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     opacity: 0.8;
-    transition: color 0.15s ease, opacity 0.15s ease;
+    transition: color 0.2s ease,
+                opacity 0.2s ease,
+                transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.field:focus-within .form-label-bold {
+.field:focus-within .form-label-bold,
+.field:has([aria-expanded="true"]) .form-label-bold {
     color: var(--primary);
     opacity: 1;
+    transform: translateX(2px);
+}
+
+.field:has(.disabled-picker) .form-label-bold {
+    opacity: 0.45;
 }
 
 .form-input-m3,
@@ -383,7 +391,10 @@ svg {
     background: transparent;
     box-shadow: none;
     outline: none;
-    transition: all 0.16s ease;
+    transition: border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 0.2s ease,
+                box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark .form-input-m3,
@@ -395,6 +406,7 @@ svg {
 .form-input-m3:focus,
 .form-input-m3:focus-visible,
 .attendance-button:focus-visible,
+.attendance-button[aria-expanded="true"],
 .date-pill:focus-visible,
 .header-icon-button:focus-visible,
 .header-toolbar-btn:focus-visible,
@@ -403,13 +415,21 @@ svg {
 .shortcut-help-btn:focus-visible {
     outline: none;
     border-color: var(--primary);
-    background-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary);
+    background-color: rgba(255, 255, 255, 0.52);
+    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary), 0 8px 18px -6px rgba(23, 105, 255, 0.18);
+}
+
+.form-input-m3:focus,
+.form-input-m3:focus-visible,
+.attendance-button:focus-visible,
+.attendance-button[aria-expanded="true"] {
+    transform: translateY(-1px);
 }
 
 .dark .form-input-m3:focus,
 .dark .form-input-m3:focus-visible,
 .dark .attendance-button:focus-visible,
+.dark .attendance-button[aria-expanded="true"],
 .dark .date-pill:focus-visible,
 .dark .header-icon-button:focus-visible,
 .dark .header-toolbar-btn:focus-visible,
@@ -417,12 +437,18 @@ svg {
 .dark .download-button:focus-visible,
 .dark .shortcut-help-btn:focus-visible {
     background-color: rgba(45, 54, 70, 0.95);
-    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary);
+    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--primary), 0 8px 18px -6px rgba(102, 163, 255, 0.16);
 }
 
-.form-input-m3:hover,
-.attendance-button:hover {
+.form-input-m3:hover:not(:focus):not(:focus-visible),
+.attendance-button:hover:not(:focus-visible):not([aria-expanded="true"]) {
     background: var(--surface-hover);
+    border-color: rgba(23, 105, 255, 0.42);
+}
+
+.dark .form-input-m3:hover:not(:focus):not(:focus-visible),
+.dark .attendance-button:hover:not(:focus-visible):not([aria-expanded="true"]) {
+    border-color: rgba(102, 163, 255, 0.52);
 }
 
 .attendance-button:hover,
@@ -723,6 +749,60 @@ select.form-input-m3 {
     gap: 1.15rem;
 }
 
+@keyframes reportCardCascadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes reportCardPulse {
+    0% {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(23, 105, 255, 0.22),
+                    0 14px 28px -4px rgba(23, 105, 255, 0.16);
+        transform: translateY(-2px);
+    }
+    100% {
+        border-color: rgba(255, 255, 255, 0.45);
+        box-shadow: 0 4px 6px -1px rgba(7, 13, 25, 0.03),
+                    0 10px 24px -3px rgba(23, 64, 129, 0.05),
+                    0 0 0 1px var(--border);
+        transform: translateY(0);
+    }
+}
+
+@keyframes reportCardPulseDark {
+    0% {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(102, 163, 255, 0.26),
+                    0 14px 28px -4px rgba(0, 0, 0, 0.48);
+        transform: translateY(-2px);
+    }
+    100% {
+        border-color: rgba(132, 151, 184, 0.24);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2),
+                    0 12px 28px -3px rgba(0, 0, 0, 0.35),
+                    0 0 0 1px var(--border);
+        transform: translateY(0);
+    }
+}
+
+@keyframes reportValueSlideIn {
+    from {
+        opacity: 0.2;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .report-card {
     min-height: 5rem;
     position: relative;
@@ -736,17 +816,44 @@ select.form-input-m3 {
     box-shadow: 0 4px 6px -1px rgba(7, 13, 25, 0.03), 
                 0 10px 24px -3px rgba(23, 64, 129, 0.05),
                 0 0 0 1px var(--border);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.22s ease;
     will-change: transform;
 }
 
+.report-card.report-card-enter {
+    animation: reportCardCascadeIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--card-i, 0) * 0.045s + 0.04s);
+}
 
+.report-card.report-card-updated {
+    animation: reportCardPulse 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark .report-card.report-card-updated {
+    animation: reportCardPulseDark 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.report-card.is-active-field-card {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1.5px var(--primary),
+                0 12px 26px -4px rgba(23, 105, 255, 0.14);
+    transform: translateY(-1.5px);
+}
 
 .dark .report-card {
     border-color: rgba(132, 151, 184, 0.24);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 
                 0 12px 28px -3px rgba(0, 0, 0, 0.35),
                 0 0 0 1px var(--border);
+}
+
+.dark .report-card.is-active-field-card {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1.5px var(--primary),
+                0 12px 26px -4px rgba(0, 0, 0, 0.45);
+    transform: translateY(-1.5px);
 }
 
 .report-card:hover {
@@ -778,6 +885,16 @@ select.form-input-m3 {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     opacity: 0.75;
+    transition: color 0.2s ease,
+                opacity 0.2s ease,
+                transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.report-card.is-active-field-card .report-label,
+.report-card.report-card-updated .report-label {
+    color: var(--primary);
+    opacity: 1;
+    transform: translateX(2px);
 }
 
 .report-value {
@@ -787,6 +904,10 @@ select.form-input-m3 {
     line-height: 1.45;
     font-weight: 800;
     overflow-wrap: anywhere;
+}
+
+.report-value.report-value-updated {
+    animation: reportValueSlideIn 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .resident-present-card .report-value {
