@@ -127,9 +127,6 @@ const copyGDocData = async (trigger = 'button') => {
     }
 };
 
-// Report Renderer
-const reportRenderer = createReportRenderer({ liveReport, getReportRows, escapeHtml });
-
 // Date Picker
 const datePicker = createDatePickerController({
     dateInput: fields.date,
@@ -191,6 +188,7 @@ typePickerButton.addEventListener('click', () => {
         options: TYPE_OPTIONS,
         returnButton: typePickerButton
     }, store.getState().type);
+    requestAnimationFrame(syncActiveReportCard);
 });
 
 presenterPickerButton.addEventListener('click', () => {
@@ -201,6 +199,7 @@ presenterPickerButton.addEventListener('click', () => {
         groups: RESIDENT_GROUPS,
         returnButton: presenterPickerButton
     }, store.getState().presenter);
+    requestAnimationFrame(syncActiveReportCard);
 });
 
 seniorPickerButton.addEventListener('click', () => {
@@ -210,6 +209,7 @@ seniorPickerButton.addEventListener('click', () => {
         options: SENIOR_OPTIONS,
         returnButton: seniorPickerButton
     }, store.getState().seniorResident);
+    requestAnimationFrame(syncActiveReportCard);
 });
 
 moderatorPickerButton.addEventListener('click', () => {
@@ -219,9 +219,10 @@ moderatorPickerButton.addEventListener('click', () => {
         options: MODERATOR_OPTIONS,
         returnButton: moderatorPickerButton
     }, store.getState().moderator);
+    requestAnimationFrame(syncActiveReportCard);
 });
 
-// Form Inputs & Field-to-Field Flow
+// Form Inputs & Two-Way Field-to-Report Flow
 const sessionForm = document.getElementById('sessionForm');
 const orderedFormControls = [
     fields.date,
@@ -243,32 +244,112 @@ const controlToCardSlug = new Map([
     [residentAttendanceButton, 'resident-present']
 ]);
 
+const cardSlugToControl = new Map([
+    ['date', fields.date],
+    ['topic', fields.topic],
+    ['type', typePickerButton],
+    ['presenter', presenterPickerButton],
+    ['senior-resident', seniorPickerButton],
+    ['moderator', moderatorPickerButton],
+    ['resident-present', residentAttendanceButton]
+]);
+
+let hoveredCardSlug = '';
+
+const syncLinkedFormField = (activeSlug = '') => {
+    cardSlugToControl.forEach((control, slug) => {
+        const fieldContainer = control?.closest('.field');
+        if (fieldContainer) {
+            fieldContainer.classList.toggle('is-linked-field', Boolean(activeSlug) && slug === activeSlug);
+        }
+    });
+};
+
+const activateFormControlBySlug = (slug) => {
+    const control = cardSlugToControl.get(slug);
+    if (!control || control.disabled) return;
+
+    const fieldContainer = control.closest('.field') || control;
+    if (typeof fieldContainer.scrollIntoView === 'function') {
+        fieldContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    if (slug === 'date') {
+        const visibleDateInput = fieldContainer.querySelector('.flatpickr-input:not([type="hidden"])') || fields.date;
+        visibleDateInput?.focus();
+        datePicker.open();
+        requestAnimationFrame(syncActiveReportCard);
+        return;
+    }
+
+    if (slug === 'topic') {
+        fields.topic.focus();
+        fields.topic.select();
+        requestAnimationFrame(syncActiveReportCard);
+        return;
+    }
+
+    control.focus();
+    control.click();
+    requestAnimationFrame(syncActiveReportCard);
+};
+
+// Report Renderer
+const reportRenderer = createReportRenderer({
+    liveReport,
+    getReportRows,
+    escapeHtml,
+    onCardActivate: activateFormControlBySlug
+});
+
 const resolveActiveCardSlug = () => {
     const expandedTrigger = orderedFormControls.find((el) => el.getAttribute('aria-expanded') === 'true');
     if (expandedTrigger) return controlToCardSlug.get(expandedTrigger) || '';
+    if (document.querySelector('.flatpickr-calendar.open')) return 'date';
     const activeEl = document.activeElement;
-    if (!activeEl) return '';
-    if (controlToCardSlug.has(activeEl)) return controlToCardSlug.get(activeEl) || '';
-    if (activeEl.closest('.date-field')) return 'date';
-    return '';
+    if (activeEl) {
+        if (controlToCardSlug.has(activeEl)) return controlToCardSlug.get(activeEl) || '';
+        if (activeEl.closest('.date-field') || activeEl.closest('.flatpickr-calendar')) return 'date';
+        const focusedCard = activeEl.closest?.('.report-card[data-card-slug]');
+        if (focusedCard && !focusedCard.classList.contains('is-disabled-card')) {
+            return focusedCard.dataset.cardSlug || '';
+        }
+    }
+    return hoveredCardSlug || '';
 };
 
 const syncActiveReportCard = () => {
+    const activeSlug = resolveActiveCardSlug();
     if (typeof reportRenderer.setActiveCard === 'function') {
-        reportRenderer.setActiveCard(resolveActiveCardSlug());
+        reportRenderer.setActiveCard(activeSlug);
     }
+    syncLinkedFormField(activeSlug);
 };
 
 sessionForm?.addEventListener('submit', (event) => {
     event.preventDefault();
 });
 
-sessionForm?.addEventListener('focusin', () => {
+document.addEventListener('focusin', () => {
     requestAnimationFrame(syncActiveReportCard);
 });
 
-sessionForm?.addEventListener('focusout', () => {
+document.addEventListener('focusout', () => {
     requestAnimationFrame(syncActiveReportCard);
+});
+
+liveReport?.addEventListener('pointerover', (event) => {
+    const card = event.target.closest('.report-card[data-card-slug]');
+    const nextSlug = card && !card.classList.contains('is-disabled-card') ? (card.dataset.cardSlug || '') : '';
+    if (hoveredCardSlug === nextSlug) return;
+    hoveredCardSlug = nextSlug;
+    syncActiveReportCard();
+});
+
+liveReport?.addEventListener('pointerleave', () => {
+    if (!hoveredCardSlug) return;
+    hoveredCardSlug = '';
+    syncActiveReportCard();
 });
 
 sessionForm?.addEventListener('keydown', (event) => {
