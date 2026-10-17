@@ -48,7 +48,10 @@ const {
     SENIOR_OPTIONS,
     TYPE_OPTIONS,
     PRESENTER_OPTIONS,
+    ALL_RESIDENTS,
     getSelectedResidents,
+    getAttendanceStats,
+    getAttendanceSummaryLabel,
     getReportRows,
     buildGoogleDocPayload,
     buildGoogleDocText,
@@ -82,7 +85,7 @@ const residentEmptySearch = document.getElementById('residentEmptySearch');
 const residentChecklist = document.getElementById('residentChecklist');
 const residentClearButton = document.getElementById('residentClearButton');
 const residentDoneButton = document.getElementById('residentDoneButton');
-const residentSelectAll = document.getElementById('residentSelectAll');
+const residentModeToggle = document.getElementById('residentModeToggle');
 
 const typePickerButton = document.getElementById('typePickerButton');
 const presenterPickerButton = document.getElementById('presenterPickerButton');
@@ -104,6 +107,7 @@ const pickerClearButton = document.getElementById('pickerClearButton');
 const pickerDoneButton = document.getElementById('pickerDoneButton');
 
 const datePillButtons = Array.from(document.querySelectorAll('[data-date-offset]'));
+const attendanceGroupPillButtons = Array.from(document.querySelectorAll('[data-attendance-group]'));
 
 // Initialize State Store
 const store = createStateStore({
@@ -194,14 +198,42 @@ const residentModal = createResidentModalController({
         closeButton: residentModalClose,
         clearButton: residentClearButton,
         doneButton: residentDoneButton,
-        selectAllCheckbox: residentSelectAll
+        modeToggle: residentModeToggle
     },
     modalManager: window.ResidentModalManager,
     residentLogic: window.ResidentLogic,
-    onSelectionChange: (selected) => store.setState({ residentsPresent: selected }),
-    getTrackedModals
+    onSelectionChange: (selected, options) => store.setState({ residentsPresent: selected }, options),
+    getTrackedModals,
+    getActivePresenter: () => {
+        const current = store.getState();
+        return current.type === 'Practical' ? '' : (current.presenter || '');
+    }
 });
 residentModal.init(() => store.getState().residentsPresent);
+
+// Quick Batch Attendance Pill Toggles
+attendanceGroupPillButtons.forEach((pillBtn) => {
+    pillBtn.addEventListener('click', () => {
+        const targetGroup = pillBtn.dataset.attendanceGroup;
+        const currentPresent = getSelectedResidents(store.getState());
+        const presentSet = new Set(currentPresent);
+
+        if (targetGroup === 'ALL') {
+            const allSelected = ALL_RESIDENTS.length > 0 && presentSet.size === ALL_RESIDENTS.length;
+            store.setState({ residentsPresent: allSelected ? [] : [...ALL_RESIDENTS] });
+            return;
+        }
+
+        const groupDef = RESIDENT_GROUPS.find((g) => g.level === targetGroup);
+        if (!groupDef) return;
+        const allGroupPresent = groupDef.names.every((name) => presentSet.has(name));
+        groupDef.names.forEach((name) => {
+            if (allGroupPresent) presentSet.delete(name);
+            else presentSet.add(name);
+        });
+        store.setState({ residentsPresent: Array.from(presentSet) });
+    });
+});
 
 // Picker Button Triggers
 typePickerButton.addEventListener('click', () => {
@@ -298,7 +330,7 @@ const syncLinkedFormField = (activeSlug = '') => {
     lastLinkedSlug = normalized;
 };
 
-const activateFormControlBySlug = (slug) => {
+const activateFormControlBySlug = (slug, _card, preferredMode = '') => {
     const control = cardSlugToControl.get(slug);
     if (!control || control.disabled) return;
 
@@ -322,6 +354,14 @@ const activateFormControlBySlug = (slug) => {
         return;
     }
 
+    if (slug === 'resident-present') {
+        control.focus();
+        const mode = preferredMode === 'absent' ? 'absent' : 'present';
+        residentModal.open(store.getState().residentsPresent, mode);
+        requestAnimationFrame(syncActiveReportCard);
+        return;
+    }
+
     control.focus();
     control.click();
     requestAnimationFrame(syncActiveReportCard);
@@ -331,6 +371,7 @@ const activateFormControlBySlug = (slug) => {
 const reportRenderer = createReportRenderer({
     liveReport,
     getReportRows,
+    getAttendanceStats,
     escapeHtml,
     onCardActivate: activateFormControlBySlug
 });
@@ -343,6 +384,7 @@ const resolveActiveCardSlug = () => {
     if (activeEl) {
         if (controlToCardSlug.has(activeEl)) return controlToCardSlug.get(activeEl) || '';
         if (activeEl.closest('.date-field') || activeEl.closest('.flatpickr-calendar')) return 'date';
+        if (activeEl.closest('.attendance-field')) return 'resident-present';
         const focusedCard = activeEl.closest?.('.report-card[data-card-slug]');
         if (focusedCard && !focusedCard.classList.contains('is-disabled-card')) {
             return focusedCard.dataset.cardSlug || '';
@@ -494,7 +536,11 @@ const setPickerLabel = (el, nextText) => {
 };
 
 // Synchronize UI with State
-const syncUI = (state, { canUndo, canRedo }) => {
+const syncUI = (state, { canUndo, canRedo }, source) => {
+    if (source === 'undo' || source === 'redo' || source === 'reset') {
+        residentModal.resetUndoSession?.();
+    }
+
     if (fields.topic.value !== (state.topic || '')) {
         fields.topic.value = state.topic || '';
     }
@@ -521,7 +567,8 @@ const syncUI = (state, { canUndo, canRedo }) => {
     setPickerLabel(moderatorPickerValue, state.moderator || '');
     moderatorPickerButton.classList.toggle('empty-picker', !state.moderator);
 
-    const selectedCount = getSelectedResidents(state).length;
+    const attendanceStats = getAttendanceStats(state);
+    const selectedCount = attendanceStats.presentCount;
     if (residentAttendanceCount.textContent !== String(selectedCount)) {
         residentAttendanceCount.textContent = String(selectedCount);
         if (!isInitialSync) {
@@ -531,12 +578,32 @@ const syncUI = (state, { canUndo, canRedo }) => {
         }
     }
     if (attendanceLabelEl) {
-        const nextAttendanceText = selectedCount
-            ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
-            : '';
+        const nextAttendanceText = typeof getAttendanceSummaryLabel === 'function'
+            ? getAttendanceSummaryLabel(state)
+            : (selectedCount ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected` : '');
         setPickerLabel(attendanceLabelEl, nextAttendanceText);
     }
     residentAttendanceButton.classList.toggle('empty-picker', selectedCount === 0);
+
+    // Sync quick batch attendance pills
+    const groupStatsByLevel = new Map(attendanceStats.groups.map((g) => [g.level, g]));
+    attendanceGroupPillButtons.forEach((pillBtn) => {
+        const targetGroup = pillBtn.dataset.attendanceGroup;
+        if (targetGroup === 'ALL') {
+            const isAll = attendanceStats.total > 0 && attendanceStats.presentCount === attendanceStats.total;
+            const isPartial = attendanceStats.presentCount > 0 && !isAll;
+            pillBtn.classList.toggle('active', isAll);
+            pillBtn.classList.toggle('partial', isPartial);
+            pillBtn.setAttribute('aria-pressed', isAll ? 'true' : 'false');
+            return;
+        }
+        const gStat = groupStatsByLevel.get(targetGroup);
+        const isGroupAll = Boolean(gStat && gStat.total > 0 && gStat.presentCount === gStat.total);
+        const isGroupPartial = Boolean(gStat && gStat.presentCount > 0 && !isGroupAll);
+        pillBtn.classList.toggle('active', isGroupAll);
+        pillBtn.classList.toggle('partial', isGroupPartial);
+        pillBtn.setAttribute('aria-pressed', isGroupAll ? 'true' : 'false');
+    });
 
     if (residentModal.isOpen()) {
         residentModal.syncCheckboxes(state.residentsPresent);

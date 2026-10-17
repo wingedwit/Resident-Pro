@@ -116,7 +116,15 @@
                     </div>
 
                     <div class="field attendance-field" style="--i:6">
-                        <span class="form-label-bold">Resident Attendance</span>
+                        <span class="field-heading">
+                            <span class="form-label-bold" style="margin-bottom: 0;">Resident Attendance</span>
+                            <span class="date-pills attendance-quick-pills" role="group" aria-label="Quick batch attendance">
+                                <button type="button" class="date-pill" data-attendance-group="JR1" aria-pressed="false">JR1</button>
+                                <button type="button" class="date-pill" data-attendance-group="JR2" aria-pressed="false">JR2</button>
+                                <button type="button" class="date-pill" data-attendance-group="JR3" aria-pressed="false">JR3</button>
+                                <button type="button" class="date-pill" data-attendance-group="ALL" aria-pressed="false">All</button>
+                            </span>
+                        </span>
                         <button id="residentAttendanceButton" class="attendance-button action-btn empty-picker" type="button" aria-haspopup="dialog" aria-expanded="false">
                             <span></span>
                             <strong id="residentAttendanceCount">0</strong>
@@ -188,10 +196,10 @@
             <header class="modal-header">
                 <h2 id="residentModalTitle" class="caps-bold-heading">Resident Attendance</h2>
                 <div class="modal-header-actions">
-                    <label class="modal-select-all">
-                        <input id="residentSelectAll" type="checkbox">
-                        <span>Select all</span>
-                    </label>
+                    <div id="residentModeToggle" class="attendance-mode-toggle" role="group" aria-label="Attendance input mode" data-active-mode="present">
+                        <button type="button" data-mode="present" class="toggle-btn active" aria-pressed="true">Present</button>
+                        <button type="button" data-mode="absent" class="toggle-btn" aria-pressed="false">Absent</button>
+                    </div>
                     <button id="residentModalClose" class="header-icon-button" type="button" title="Close" aria-label="Close resident attendance">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6 6 18"></path>
@@ -205,7 +213,7 @@
                         <circle cx="11" cy="11" r="7" stroke-width="2"></circle>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 16l4.5 4.5"></path>
                     </svg>
-                    <input type="text" id="residentSearchInput" class="modal-search-input" placeholder="Search residents by name..." autocomplete="off" spellcheck="false" aria-label="Search residents">
+                    <input type="text" id="residentSearchInput" class="modal-search-input" placeholder="" autocomplete="off" spellcheck="false" aria-label="Search residents">
                     <button type="button" id="residentSearchClear" class="modal-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
                 </div>
             </div>
