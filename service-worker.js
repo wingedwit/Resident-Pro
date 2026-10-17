@@ -1,4 +1,4 @@
-const APP_VERSION = '1.0.16';
+const APP_VERSION = '1.0.19';
 const CACHE_VERSION = `resident-pro-v${APP_VERSION}`;
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
@@ -23,9 +23,6 @@ const APP_SHELL = [
   './app.js',
   './pwa-register.js',
   './manifest.webmanifest',
-  './assets/vendor/flatpickr/flatpickr.min.js',
-  './assets/vendor/flatpickr/themes/dark.css',
-  './assets/vendor/flatpickr/themes/light.css',
   './assets/icons/icon.svg',
   './assets/icons/icon-maskable.svg'
 ];

@@ -35,7 +35,7 @@ Do not reorder these scripts unless dependency references are updated at the sam
 | `lib/report-ui.js` | Live-report DOM creation and updates | State mutation or report content rules |
 | `lib/modal-manager.js` | Dialog focus trapping, animation transitions, scroll lock | Business rules or state storage |
 | `lib/state-manager.js` | Store subscription, undo/redo history, debounce saving, invariants | Direct DOM manipulation |
-| `lib/date-picker.js` | Lazy Flatpickr loading, theme stylesheet sync, pill navigation | Attendance or report generation |
+| `lib/date-picker.js` | Google Calendar-inspired mini-calendar popover, month/year switcher, pill navigation | Attendance or report generation |
 | `lib/picker-modal.js` | Single-select option modal rendering, filtering, and selection | Resident group attendance state |
 | `lib/resident-modal.js` | Resident checklist DOM rendering, group selection, search | Single-choice picker options |
 | `lib/keyboard-shortcuts.js` | Global shortcut routing (Alt+T, Ctrl+Alt+D, Esc, undo/redo) | Business logic execution |

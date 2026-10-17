@@ -340,8 +340,7 @@ const activateFormControlBySlug = (slug, _card, preferredMode = '') => {
     }
 
     if (slug === 'date') {
-        const visibleDateInput = fieldContainer.querySelector('.flatpickr-input:not([type="hidden"])') || fields.date;
-        visibleDateInput?.focus();
+        fields.date?.focus();
         datePicker.open();
         requestAnimationFrame(syncActiveReportCard);
         return;
@@ -379,11 +378,11 @@ const reportRenderer = createReportRenderer({
 const resolveActiveCardSlug = () => {
     const expandedTrigger = orderedFormControls.find((el) => el.getAttribute('aria-expanded') === 'true');
     if (expandedTrigger) return controlToCardSlug.get(expandedTrigger) || '';
-    if (document.querySelector('.flatpickr-calendar.open')) return 'date';
+    if (typeof datePicker.isOpen === 'function' && datePicker.isOpen()) return 'date';
     const activeEl = document.activeElement;
     if (activeEl) {
         if (controlToCardSlug.has(activeEl)) return controlToCardSlug.get(activeEl) || '';
-        if (activeEl.closest('.date-field') || activeEl.closest('.flatpickr-calendar')) return 'date';
+        if (activeEl.closest('.date-field') || activeEl.closest('.gcal-popover')) return 'date';
         if (activeEl.closest('.attendance-field')) return 'resident-present';
         const focusedCard = activeEl.closest?.('.report-card[data-card-slug]');
         if (focusedCard && !focusedCard.classList.contains('is-disabled-card')) {
@@ -470,9 +469,6 @@ fields.topic.addEventListener('blur', () => {
     flushPendingTopicCommit();
 });
 
-fields.date.addEventListener('input', () => store.setState({ date: fields.date.value }));
-fields.date.addEventListener('change', () => store.setState({ date: fields.date.value }));
-
 // Action Buttons
 copyDocButton.addEventListener('click', () => copyGDocData('button'));
 
@@ -508,16 +504,21 @@ upiCopyButton?.addEventListener('click', async () => {
 // Keyboard Shortcuts
 initKeyboardShortcuts({
     onEscape: () => {
+        if (typeof datePicker.handleEscape === 'function' && datePicker.handleEscape()) return true;
         if (pickerModal.handleEscape()) return true;
         if (residentModal.handleEscape()) return true;
         return false;
     },
     onTopicJump: () => {
+        datePicker.close?.();
         fields.topic.focus();
         fields.topic.select();
     },
     onCopyDoc: () => copyGDocData('shortcut'),
-    onClear: () => clearButton.click(),
+    onClear: () => {
+        datePicker.close?.();
+        clearButton.click();
+    },
     onUndo: () => undoButton?.click(),
     onRedo: () => redoButton?.click()
 });
