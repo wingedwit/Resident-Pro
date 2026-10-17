@@ -1223,29 +1223,35 @@ select.form-input-m3 {
     left: 0.18rem;
     width: calc(50% - 0.18rem);
     border-radius: 999px;
-    background-color: var(--primary);
-    box-shadow: 0 2px 8px rgba(23, 105, 255, 0.28);
+    background-color: #DCFCE7;
+    border: 1px solid rgba(22, 101, 52, 0.24);
+    box-shadow: 0 2px 6px rgba(22, 101, 52, 0.1);
     transform: translateX(0);
     transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1),
                 background-color 0.2s ease,
+                border-color 0.2s ease,
                 box-shadow 0.2s ease;
     z-index: 0;
     pointer-events: none;
 }
 
 .dark .attendance-mode-toggle::before {
-    box-shadow: 0 2px 8px rgba(102, 163, 255, 0.24);
+    background-color: rgba(21, 128, 61, 0.28);
+    border-color: rgba(74, 222, 128, 0.34);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
 }
 
 .attendance-mode-toggle[data-active-mode="absent"]::before {
     transform: translateX(100%);
-    background-color: #B3261E;
-    box-shadow: 0 2px 8px rgba(179, 38, 30, 0.28);
+    background-color: #F9DEDC;
+    border-color: rgba(179, 38, 30, 0.28);
+    box-shadow: 0 2px 6px rgba(179, 38, 30, 0.12);
 }
 
 .dark .attendance-mode-toggle[data-active-mode="absent"]::before {
-    background-color: #F2B8B5;
-    box-shadow: 0 2px 8px rgba(242, 184, 181, 0.22);
+    background-color: rgba(140, 29, 24, 0.38);
+    border-color: rgba(242, 184, 181, 0.36);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .toggle-btn {
@@ -1261,17 +1267,22 @@ select.form-input-m3 {
     transition: color 0.18s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.toggle-btn.active {
-    font-weight: 700;
-    color: #ffffff !important;
+.attendance-mode-toggle:not([data-active-mode="absent"]) .toggle-btn.active {
+    font-weight: 750;
+    color: #166534 !important;
 }
 
 .dark .attendance-mode-toggle:not([data-active-mode="absent"]) .toggle-btn.active {
-    color: #041735 !important;
+    color: #4ADE80 !important;
+}
+
+.attendance-mode-toggle[data-active-mode="absent"] .toggle-btn.active {
+    font-weight: 750;
+    color: #B3261E !important;
 }
 
 .dark .attendance-mode-toggle[data-active-mode="absent"] .toggle-btn.active {
-    color: #410E0B !important;
+    color: #F2B8B5 !important;
 }
 
 .modal-search-wrapper {
@@ -1524,6 +1535,11 @@ select.form-input-m3 {
     text-transform: uppercase;
 }
 
+#residentModal:not([data-attendance-mode="absent"]) .resident-group-title,
+#residentModal:not([data-attendance-mode="absent"]) .group-select-all {
+    color: var(--success);
+}
+
 .resident-group-count {
     display: inline-flex;
     align-items: center;
@@ -1531,12 +1547,13 @@ select.form-input-m3 {
     border-radius: 999px;
     font-size: 0.66rem;
     font-weight: 700;
-    background: rgba(23, 105, 255, 0.1);
-    color: var(--primary);
+    background: #DCFCE7;
+    color: #166534;
 }
 
 .dark .resident-group-count {
-    background: rgba(102, 163, 255, 0.15);
+    background: rgba(21, 128, 61, 0.25);
+    color: #4ADE80;
 }
 
 #residentModal[data-attendance-mode="absent"] .resident-group-title,
@@ -1545,8 +1562,13 @@ select.form-input-m3 {
 }
 
 #residentModal[data-attendance-mode="absent"] .resident-group-count {
-    background: var(--danger-soft);
-    color: var(--danger);
+    background: #F9DEDC;
+    color: #B3261E;
+}
+
+.dark #residentModal[data-attendance-mode="absent"] .resident-group-count {
+    background: rgba(140, 29, 24, 0.38);
+    color: #F2B8B5;
 }
 
 .resident-group-list {
@@ -1561,7 +1583,7 @@ select.form-input-m3 {
     gap: 0.3rem;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
-    color: var(--primary);
+    color: var(--success);
     font-size: 0.72rem;
     font-weight: 700;
     cursor: pointer;
@@ -1569,11 +1591,11 @@ select.form-input-m3 {
 }
 
 .group-select-all:hover {
-    background-color: rgba(23, 105, 255, 0.08);
+    background-color: rgba(22, 101, 52, 0.08);
 }
 
 .dark .group-select-all:hover {
-    background-color: rgba(102, 163, 255, 0.12);
+    background-color: rgba(74, 222, 128, 0.12);
 }
 
 #residentModal[data-attendance-mode="absent"] .group-select-all:hover {
@@ -1588,12 +1610,20 @@ select.form-input-m3 {
     width: 0.85rem;
     height: 0.85rem;
     margin: 0;
-    accent-color: var(--primary);
+    accent-color: #166534;
     cursor: pointer;
+}
+
+.dark .group-select-all input {
+    accent-color: #4ADE80;
 }
 
 #residentModal[data-attendance-mode="absent"] .group-select-all input {
     accent-color: #B3261E;
+}
+
+.dark #residentModal[data-attendance-mode="absent"] .group-select-all input {
+    accent-color: #F2B8B5;
 }
 
 .resident-option,
@@ -1654,26 +1684,18 @@ select.form-input-m3 {
     color: var(--secondary);
 }
 
-.resident-option.is-selected .resident-presenter-badge,
-.resident-option.is-absent-selected .resident-presenter-badge {
-    background: rgba(255, 255, 255, 0.22);
-    color: inherit;
-    border-color: rgba(255, 255, 255, 0.38);
+.resident-option:hover:not(.is-selected):not(.is-absent-selected) {
+    background-color: rgba(22, 101, 52, 0.07);
 }
 
-.dark .resident-option.is-selected .resident-presenter-badge,
-.dark .resident-option.is-absent-selected .resident-presenter-badge {
-    background: rgba(4, 23, 53, 0.16);
-    color: inherit;
-    border-color: rgba(4, 23, 53, 0.28);
+.dark .resident-option:hover:not(.is-selected):not(.is-absent-selected) {
+    background-color: rgba(74, 222, 128, 0.1);
 }
 
-.resident-option:hover:not(.is-selected):not(.is-absent-selected),
 .picker-option:hover:not(.is-selected) {
     background-color: rgba(23, 105, 255, 0.09);
 }
 
-.dark .resident-option:hover:not(.is-selected):not(.is-absent-selected),
 .dark .picker-option:hover:not(.is-selected) {
     background-color: rgba(102, 163, 255, 0.14);
 }
@@ -1735,7 +1757,20 @@ select.form-input-m3 {
 }
 
 .resident-option.is-selected,
-#residentModal:not([data-attendance-mode="absent"]) .resident-option:has(input:checked),
+#residentModal:not([data-attendance-mode="absent"]) .resident-option:has(input:checked) {
+    background-color: #DCFCE7;
+    border-color: rgba(22, 101, 52, 0.32);
+    color: #166534;
+    font-weight: 700;
+}
+
+.dark .resident-option.is-selected,
+.dark #residentModal:not([data-attendance-mode="absent"]) .resident-option:has(input:checked) {
+    background-color: rgba(21, 128, 61, 0.28);
+    border-color: rgba(74, 222, 128, 0.36);
+    color: #4ADE80;
+}
+
 .picker-option:has(input[type="radio"]:checked),
 .picker-option.is-selected {
     background-color: var(--primary);
@@ -1745,8 +1780,6 @@ select.form-input-m3 {
     box-shadow: 0 3px 10px rgba(23, 105, 255, 0.3);
 }
 
-.dark .resident-option.is-selected,
-.dark #residentModal:not([data-attendance-mode="absent"]) .resident-option:has(input:checked),
 .dark .picker-option:has(input[type="radio"]:checked),
 .dark .picker-option.is-selected {
     background-color: var(--primary);
@@ -1757,19 +1790,17 @@ select.form-input-m3 {
 
 .resident-option.is-absent-selected,
 #residentModal[data-attendance-mode="absent"] .resident-option:has(input:checked) {
-    background-color: #B3261E;
-    border-color: #B3261E;
-    color: #ffffff;
+    background-color: #F9DEDC;
+    border-color: rgba(179, 38, 30, 0.35);
+    color: #B3261E;
     font-weight: 700;
-    box-shadow: 0 3px 10px rgba(179, 38, 30, 0.28);
 }
 
 .dark .resident-option.is-absent-selected,
 .dark #residentModal[data-attendance-mode="absent"] .resident-option:has(input:checked) {
-    background-color: #F2B8B5;
-    border-color: #F2B8B5;
-    color: #410E0B;
-    box-shadow: 0 3px 10px rgba(242, 184, 181, 0.22);
+    background-color: rgba(140, 29, 24, 0.38);
+    border-color: rgba(242, 184, 181, 0.38);
+    color: #F2B8B5;
 }
 
 .resident-option input[type="checkbox"]:focus-visible,
@@ -1787,12 +1818,10 @@ select.form-input-m3 {
     box-shadow: 0 0 0 2px rgba(102, 163, 255, 0.48) !important;
 }
 
-.resident-option.is-selected:has(input:focus-visible),
 .picker-option.is-selected:has(input:focus-visible) {
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--primary) !important;
 }
 
-.dark .resident-option.is-selected:has(input:focus-visible),
 .dark .picker-option.is-selected:has(input:focus-visible) {
     box-shadow: 0 0 0 2px #0f1520, 0 0 0 4px var(--primary) !important;
 }
