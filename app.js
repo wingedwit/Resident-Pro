@@ -203,11 +203,7 @@ const residentModal = createResidentModalController({
     modalManager: window.ResidentModalManager,
     residentLogic: window.ResidentLogic,
     onSelectionChange: (selected, options) => store.setState({ residentsPresent: selected }, options),
-    getTrackedModals,
-    getActivePresenter: () => {
-        const current = store.getState();
-        return current.type === 'Practical' ? '' : (current.presenter || '');
-    }
+    getTrackedModals
 });
 residentModal.init(() => store.getState().residentsPresent);
 

@@ -1554,11 +1554,6 @@ select.form-input-m3 {
     text-transform: uppercase;
 }
 
-#residentModal:not([data-attendance-mode="absent"]) .resident-group-title,
-#residentModal:not([data-attendance-mode="absent"]) .group-select-all {
-    color: var(--success);
-}
-
 .resident-group-count {
     display: inline-flex;
     align-items: center;
@@ -1566,83 +1561,19 @@ select.form-input-m3 {
     border-radius: 999px;
     font-size: 0.72rem;
     font-weight: 700;
-    background: #DCFCE7;
-    color: #166534;
+    background: rgba(23, 64, 129, 0.08);
+    color: var(--muted);
 }
 
 .dark .resident-group-count {
-    background: rgba(21, 128, 61, 0.25);
-    color: #4ADE80;
-}
-
-#residentModal[data-attendance-mode="absent"] .resident-group-title,
-#residentModal[data-attendance-mode="absent"] .group-select-all {
-    color: var(--danger);
-}
-
-#residentModal[data-attendance-mode="absent"] .resident-group-count {
-    background: #F9DEDC;
-    color: #B3261E;
-}
-
-.dark #residentModal[data-attendance-mode="absent"] .resident-group-count {
-    background: rgba(140, 29, 24, 0.38);
-    color: #F2B8B5;
+    background: rgba(132, 151, 184, 0.15);
+    color: var(--muted);
 }
 
 .resident-group-list {
     display: flex;
     flex-direction: column;
     gap: 0.32rem;
-}
-
-.group-select-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: 999px;
-    color: var(--success);
-    font-size: 0.76rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.14s ease;
-}
-
-.group-select-all:hover {
-    background-color: rgba(22, 101, 52, 0.08);
-}
-
-.dark .group-select-all:hover {
-    background-color: rgba(74, 222, 128, 0.12);
-}
-
-#residentModal[data-attendance-mode="absent"] .group-select-all:hover {
-    background-color: rgba(179, 38, 30, 0.08);
-}
-
-.dark #residentModal[data-attendance-mode="absent"] .group-select-all:hover {
-    background-color: rgba(242, 184, 181, 0.12);
-}
-
-.group-select-all input {
-    width: 0.9rem;
-    height: 0.9rem;
-    margin: 0;
-    accent-color: #166534;
-    cursor: pointer;
-}
-
-.dark .group-select-all input {
-    accent-color: #4ADE80;
-}
-
-#residentModal[data-attendance-mode="absent"] .group-select-all input {
-    accent-color: #B3261E;
-}
-
-.dark #residentModal[data-attendance-mode="absent"] .group-select-all input {
-    accent-color: #F2B8B5;
 }
 
 .resident-option,
@@ -1686,22 +1617,6 @@ select.form-input-m3 {
     flex: 1;
 }
 
-.resident-presenter-badge {
-    flex-shrink: 0;
-    padding: 0.14rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    background: var(--secondary-soft);
-    color: #c2410c;
-    border: 1px solid rgba(255, 138, 61, 0.35);
-}
-
-.dark .resident-presenter-badge {
-    color: var(--secondary);
-}
 
 .resident-option:hover:not(.is-selected):not(.is-absent-selected) {
     background-color: rgba(22, 101, 52, 0.07);
