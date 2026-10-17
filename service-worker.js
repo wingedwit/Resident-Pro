@@ -1,4 +1,4 @@
-const APP_VERSION = '1.0.13';
+const APP_VERSION = '1.0.14';
 const CACHE_VERSION = `resident-pro-v${APP_VERSION}`;
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
@@ -78,6 +78,20 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+const fetchWithTimeout = (request, timeoutMs = 1800) => new Promise((resolve, reject) => {
+  const timer = setTimeout(() => reject(new Error('Navigation fetch timeout')), timeoutMs);
+  fetch(request).then(
+    (response) => {
+      clearTimeout(timer);
+      resolve(response);
+    },
+    (err) => {
+      clearTimeout(timer);
+      reject(err);
+    }
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const requestUrl = new URL(event.request.url);
@@ -86,7 +100,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(event.request);
+        const fresh = await fetchWithTimeout(event.request);
         if (shouldCacheResponse(fresh)) {
           const runtime = await caches.open(RUNTIME_CACHE);
           await runtime.put(event.request, fresh.clone());

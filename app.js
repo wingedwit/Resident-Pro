@@ -50,6 +50,7 @@ const {
     PRESENTER_OPTIONS,
     getSelectedResidents,
     getReportRows,
+    buildGoogleDocPayload,
     buildGoogleDocText,
     buildGoogleDocHtml,
     escapeHtml
@@ -115,10 +116,32 @@ const store = createStateStore({
 const showToast = createToast(toast);
 const triggerCopySuccess = createCopyFeedback(copyDocButton, copyDocIcon);
 
+const TOPIC_DEBOUNCE_DELAY = 150;
+let topicDebounceTimer = null;
+
+const cancelPendingTopicCommit = () => {
+    if (!topicDebounceTimer) return;
+    clearTimeout(topicDebounceTimer);
+    topicDebounceTimer = null;
+};
+
+const flushPendingTopicCommit = () => {
+    if (!topicDebounceTimer) return;
+    clearTimeout(topicDebounceTimer);
+    topicDebounceTimer = null;
+    if (fields.topic) {
+        store.setState({ topic: fields.topic.value });
+    }
+};
+
 const copyGDocData = async (trigger = 'button') => {
+    flushPendingTopicCommit();
     const currentState = store.getState();
     try {
-        await copyText(buildGoogleDocText(currentState), buildGoogleDocHtml(currentState));
+        const payload = typeof buildGoogleDocPayload === 'function'
+            ? buildGoogleDocPayload(currentState)
+            : { text: buildGoogleDocText(currentState), html: buildGoogleDocHtml(currentState) };
+        await copyText(payload.text, payload.html);
         showToast('Copied G-Doc data');
         triggerCopySuccess();
         trackEvent('copy_gdoc_data', { trigger });
@@ -254,22 +277,32 @@ const cardSlugToControl = new Map([
     ['resident-present', residentAttendanceButton]
 ]);
 
+const fieldContainerBySlug = new Map();
+cardSlugToControl.forEach((control, slug) => {
+    const fieldContainer = control?.closest('.field');
+    if (fieldContainer) fieldContainerBySlug.set(slug, fieldContainer);
+});
+
 let hoveredCardSlug = '';
+let lastLinkedSlug = '';
 
 const syncLinkedFormField = (activeSlug = '') => {
-    cardSlugToControl.forEach((control, slug) => {
-        const fieldContainer = control?.closest('.field');
-        if (fieldContainer) {
-            fieldContainer.classList.toggle('is-linked-field', Boolean(activeSlug) && slug === activeSlug);
-        }
-    });
+    const normalized = activeSlug || '';
+    if (lastLinkedSlug === normalized) return;
+    if (lastLinkedSlug) {
+        fieldContainerBySlug.get(lastLinkedSlug)?.classList.remove('is-linked-field');
+    }
+    if (normalized) {
+        fieldContainerBySlug.get(normalized)?.classList.add('is-linked-field');
+    }
+    lastLinkedSlug = normalized;
 };
 
 const activateFormControlBySlug = (slug) => {
     const control = cardSlugToControl.get(slug);
     if (!control || control.disabled) return;
 
-    const fieldContainer = control.closest('.field') || control;
+    const fieldContainer = fieldContainerBySlug.get(slug) || control;
     if (typeof fieldContainer.scrollIntoView === 'function') {
         fieldContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -379,8 +412,21 @@ sessionForm?.addEventListener('keydown', (event) => {
     }
 });
 
-fields.topic.addEventListener('input', () => store.setState({ topic: fields.topic.value }));
-fields.topic.addEventListener('change', () => store.setState({ topic: fields.topic.value }));
+fields.topic.addEventListener('input', () => {
+    const nextValue = fields.topic.value;
+    cancelPendingTopicCommit();
+    topicDebounceTimer = setTimeout(() => {
+        topicDebounceTimer = null;
+        store.setState({ topic: nextValue });
+    }, TOPIC_DEBOUNCE_DELAY);
+});
+fields.topic.addEventListener('change', () => {
+    cancelPendingTopicCommit();
+    store.setState({ topic: fields.topic.value });
+});
+fields.topic.addEventListener('blur', () => {
+    flushPendingTopicCommit();
+});
 
 fields.date.addEventListener('input', () => store.setState({ date: fields.date.value }));
 fields.date.addEventListener('change', () => store.setState({ date: fields.date.value }));
@@ -389,12 +435,19 @@ fields.date.addEventListener('change', () => store.setState({ date: fields.date.
 copyDocButton.addEventListener('click', () => copyGDocData('button'));
 
 clearButton.addEventListener('click', () => {
+    cancelPendingTopicCommit();
     store.reset();
     showToast('Form cleared');
 });
 
-undoButton?.addEventListener('click', () => store.undo());
-redoButton?.addEventListener('click', () => store.redo());
+undoButton?.addEventListener('click', () => {
+    cancelPendingTopicCommit();
+    store.undo();
+});
+redoButton?.addEventListener('click', () => {
+    cancelPendingTopicCommit();
+    store.redo();
+});
 
 mobileCopyButton?.addEventListener('click', async () => {
     try {
@@ -428,6 +481,7 @@ initKeyboardShortcuts({
 });
 
 let isInitialSync = true;
+const attendanceLabelEl = residentAttendanceButton?.querySelector('span');
 
 const setPickerLabel = (el, nextText) => {
     if (!el || el.textContent === nextText) return;
@@ -476,12 +530,11 @@ const syncUI = (state, { canUndo, canRedo }) => {
             residentAttendanceCount.classList.add('count-pop');
         }
     }
-    const attendanceLabel = residentAttendanceButton.querySelector('span');
-    if (attendanceLabel) {
+    if (attendanceLabelEl) {
         const nextAttendanceText = selectedCount
             ? `${selectedCount} resident${selectedCount === 1 ? '' : 's'} selected`
             : '';
-        setPickerLabel(attendanceLabel, nextAttendanceText);
+        setPickerLabel(attendanceLabelEl, nextAttendanceText);
     }
     residentAttendanceButton.classList.toggle('empty-picker', selectedCount === 0);
 
@@ -498,3 +551,16 @@ const syncUI = (state, { canUndo, canRedo }) => {
 
 // Initial store subscription triggers initial render
 store.subscribe(syncUI, true);
+
+// Lifecycle save flushes
+const flushAll = () => {
+    flushPendingTopicCommit();
+    if (typeof store.flushPendingSave === 'function') {
+        store.flushPendingSave();
+    }
+};
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushAll();
+});
+window.addEventListener('pagehide', flushAll);
